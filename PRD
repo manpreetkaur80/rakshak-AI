@@ -1,0 +1,2923 @@
+# PS-9 — Intelligent Emergency Response & Resource Coordination Platform
+
+## Product Requirements Document (Hackathon Edition)
+
+**Document Version:** 2.0 — Hackathon MVP  
+**Project Code:** PS-9  
+**Status:** Implementation Ready  
+**Primary Goal:** Build a working, polished demo within a limited hackathon timeline  
+**Database:** MongoDB  
+**Frontend:** React.js + CSS  
+**Backend:** Node.js + Express.js  
+
+---
+
+# 1. Executive Summary
+
+The Intelligent Emergency Response & Resource Coordination Platform is a web-based command and coordination system for handling emergencies such as fires, floods, road accidents, medical emergencies and industrial incidents.
+
+The original concept is to combine reports from citizens, responders, sensors, hospitals and authorities into one source of truth, then classify incidents, detect duplicate reports, recommend suitable resources, provide a real-time command dashboard, and maintain an incident history.
+
+For the hackathon, the platform will focus on a **small number of high-impact features that can actually be demonstrated end-to-end** rather than attempting production-scale infrastructure.
+
+### Hackathon MVP
+
+The MVP will provide:
+
+1. Citizen incident reporting
+2. Operator/admin command-center dashboard
+3. AI-assisted incident classification and severity estimation
+4. Duplicate/related incident detection
+5. Resource recommendation and manual dispatch
+6. Live incident/resource updates
+7. Interactive emergency map
+8. Alert and escalation logic
+9. AI-generated incident summaries
+10. Basic analytics
+
+All core application data will be stored in **MongoDB Atlas**.
+
+---
+
+# 2. Problem Statement
+
+During large-scale emergencies, information can arrive from disconnected sources such as emergency calls, citizen reports, field teams, sensors, hospitals and government departments.
+
+This fragmentation can cause:
+
+- Lack of a single source of truth
+- Duplicate reports
+- Incorrect or delayed prioritization
+- Slow resource allocation
+- Poor visibility of active incidents
+- Delayed escalation
+- Difficulty learning from previous incidents
+
+The proposed platform transforms these fragmented reports into a unified workflow:
+
+```text
+Report
+   ↓
+Normalize
+   ↓
+Classify
+   ↓
+Estimate Severity
+   ↓
+Check Duplicate
+   ↓
+Create / Merge Incident
+   ↓
+Recommend Resources
+   ↓
+Operator Dispatch
+   ↓
+Real-Time Tracking
+   ↓
+Resolve
+   ↓
+Analytics
+```
+
+---
+
+# 3. Hackathon Product Vision
+
+## 3.1 Vision
+
+Create a lightweight emergency command platform that demonstrates how AI + real-time web technologies can help operators turn multiple emergency reports into coordinated action.
+
+## 3.2 Core Demo Story
+
+The main demo scenario will be:
+
+> Multiple citizens report a fire at approximately the same location. The system identifies the reports as related, creates one high-priority incident, generates an AI summary, recommends nearby fire and medical resources, allows an operator to dispatch them, updates the dashboard in real time, triggers an escalation if the response is delayed, and finally records the resolution for analytics.
+
+This single scenario should demonstrate most of the platform's value.
+
+---
+
+# 4. Goals and Objectives
+
+## 4.1 Primary Goals
+
+| ID | Goal | MVP Implementation |
+|---|---|---|
+| G1 | Unified incident intake | React form + Express REST API |
+| G2 | Intelligent triage | Rule-based + Gemini-assisted classification |
+| G3 | Duplicate detection | Location + time + text similarity |
+| G4 | Resource coordination | Rule-based recommendation engine |
+| G5 | Real-time visibility | Socket.IO |
+| G6 | Emergency map | Leaflet + OpenStreetMap |
+| G7 | Escalation | Backend timer/rules |
+| G8 | Analytics | MongoDB aggregation + Recharts |
+
+## 4.2 Hackathon Success Criteria
+
+The project is considered successful when the team can demonstrate:
+
+- A citizen submitting an emergency report
+- The report appearing on the operator dashboard
+- Automatic classification
+- Severity and priority generation
+- Duplicate detection
+- Resource recommendations
+- Dispatching a resource
+- Real-time status change
+- Escalation alert
+- Incident resolution
+- Analytics update
+
+---
+
+# 5. Scope
+
+## 5.1 In Scope — MVP
+
+### Incident Management
+- Create incident
+- View incident
+- Update incident
+- Change status
+- Assign priority
+- Resolve incident
+- Incident timeline
+
+### Citizen Reporting
+- Incident type
+- Description
+- Current/manual location
+- Optional image
+- Anonymous/demo reporting
+- Tracking ID
+
+### AI Assistance
+- Incident classification
+- Severity suggestion
+- Priority suggestion
+- Short incident summary
+- Recommended response actions
+
+### Duplicate Detection
+- Distance check
+- Time-window check
+- Keyword/text similarity
+- Operator confirmation before merge
+
+### Resource Coordination
+- Fire teams
+- Ambulances
+- Police units
+- Rescue teams
+- Shelters/hospitals
+- Availability status
+- Distance
+- Capability matching
+- Manual dispatch
+
+### Command Dashboard
+- Live map
+- Incident list
+- Severity filters
+- Resource panel
+- Alert feed
+- KPI cards
+- Incident details
+
+### Real-Time
+- New incident notifications
+- Incident updates
+- Resource status updates
+- Dispatch notifications
+- Alert notifications
+
+### Analytics
+- Incidents by type
+- Incidents by severity
+- Response time
+- Resource utilization
+- Resolved incidents
+- Hotspot visualization
+
+---
+
+# 6. Out of Scope for Hackathon MVP
+
+The following should NOT be implemented unless the core MVP is already stable:
+
+- Kafka
+- RabbitMQ
+- Redis cluster
+- Kubernetes
+- Microservices
+- PostgreSQL/PostGIS
+- Vector database
+- Custom ML model training
+- Real emergency service integration
+- Real emergency call-center integration
+- Real IoT hardware
+- Real hospital APIs
+- Automated police/fire dispatch
+- Blockchain
+- Full offline synchronization
+- Native Android/iOS applications
+- Production-grade 10,000+ concurrent user infrastructure
+- Advanced computer vision
+- Live traffic provider integration
+- Complex MLOps pipelines
+- Full GDPR/HIPAA compliance certification
+
+These can remain future architecture options.
+
+---
+
+# 7. Target Users
+
+## 7.1 Citizen
+
+Can:
+
+- Submit an emergency report
+- Add location
+- Add description
+- Add optional image
+- Receive a tracking ID
+- View status
+
+## 7.2 Command Center Operator
+
+Can:
+
+- View all active incidents
+- Inspect AI classification
+- Confirm/modify severity
+- View duplicate suggestions
+- View resource recommendations
+- Dispatch resources
+- Monitor response status
+- Escalate incidents
+- Resolve incidents
+
+## 7.3 Field Responder
+
+Can:
+
+- View assigned incident
+- Accept assignment
+- Update status
+- View incident location
+- Add response notes
+- Mark incident resolved
+
+## 7.4 Admin
+
+Can:
+
+- Manage users
+- Manage resources
+- View analytics
+- Configure escalation thresholds
+- Seed demo data
+
+---
+
+# 8. Recommended Hackathon Architecture
+
+The architecture is intentionally a **modular monolith**.
+
+Do NOT build microservices during the hackathon.
+
+```text
+                         ┌──────────────────────────┐
+                         │       React.js App       │
+                         │                          │
+                         │ Citizen Portal           │
+                         │ Command Dashboard        │
+                         │ Responder View            │
+                         │ Analytics                 │
+                         └────────────┬─────────────┘
+                                      │
+                         REST API + Socket.IO
+                                      │
+                                      ▼
+                 ┌────────────────────────────────────┐
+                 │        Node.js + Express.js        │
+                 │                                    │
+                 │ Auth Module                        │
+                 │ Incident Module                    │
+                 │ AI/Triage Module                   │
+                 │ Duplicate Detection                │
+                 │ Resource Engine                    │
+                 │ Alert/Escalation                   │
+                 │ Analytics                          │
+                 │ Socket.IO                          │
+                 └────────────────┬───────────────────┘
+                                  │
+                                  ▼
+                         ┌─────────────────┐
+                         │ MongoDB Atlas   │
+                         │                 │
+                         │ users           │
+                         │ incidents       │
+                         │ reports         │
+                         │ resources       │
+                         │ alerts          │
+                         │ events          │
+                         └─────────────────┘
+
+External Free/Low-Cost Services
+        │
+        ├── Gemini API → AI assistance
+        ├── Leaflet + OpenStreetMap → map
+        ├── OSRM → route/ETA demo
+        └── Cloudinary → optional image storage
+```
+
+---
+
+# 9. Technology Stack
+
+## 9.1 Frontend
+
+| Technology | Purpose | Reason |
+|---|---|---|
+| React.js | UI | Component-based and fast to build |
+| Vite | React build tool | Fast development |
+| CSS3 | Styling | User explicitly requires CSS |
+| React Router | Routing | Simple SPA navigation |
+| Axios | API requests | Simple HTTP client |
+| Socket.IO Client | Real-time updates | Easy integration with Node |
+| Leaflet | Maps | Open-source |
+| React-Leaflet | React map integration | Simple React integration |
+| Recharts | Charts | React-native chart components |
+| Lucide React | Icons | Lightweight icon library |
+
+### Frontend rule
+
+Do not use Tailwind CSS for the MVP.
+
+Use:
+
+```text
+React
++
+CSS Modules or organized .css files
+```
+
+This keeps the stack simple and matches the required frontend technology.
+
+---
+
+# 10. Backend
+
+| Technology | Purpose |
+|---|---|
+| Node.js | Runtime |
+| Express.js | REST API |
+| Mongoose | MongoDB ODM |
+| Socket.IO | Real-time communication |
+| JWT | Authentication |
+| bcryptjs | Password hashing |
+| dotenv | Environment variables |
+| cors | Cross-origin configuration |
+| helmet | Security headers |
+| express-rate-limit | API protection |
+| multer | Temporary multipart handling |
+| node-cron | Scheduled escalation/cleanup |
+| axios | External API calls |
+| uuid | Public IDs where useful |
+
+---
+
+# 11. Database
+
+## 11.1 MongoDB Atlas
+
+MongoDB Atlas will be the only primary database for the MVP.
+
+This intentionally replaces the original multi-database design.
+
+### Why MongoDB?
+
+- Simple Node.js integration
+- Flexible emergency-report schema
+- Good fit for rapidly changing incident data
+- Easy nested documents
+- GeoJSON support
+- Aggregation pipeline for analytics
+- Free development cluster available
+- Easy to scale later
+
+MongoDB Atlas currently provides a free cluster option suitable for small development/proof-of-concept applications. The free cluster has resource limits, so the hackathon application should avoid claiming production-scale capacity. 
+
+---
+
+# 12. Free/Accessible Resource Strategy
+
+The project should prefer free/open-source tools and free development tiers.
+
+| Requirement | Recommended Resource | MVP Usage |
+|---|---|---|
+| Database | MongoDB Atlas Free | Main database |
+| Map | Leaflet | Map UI |
+| Map data | OpenStreetMap | Map tiles/data |
+| Routing | OSRM | Demo routing/ETA |
+| AI | Gemini API Free Tier | Classification + summaries |
+| Image storage | Cloudinary Free | Optional attachments |
+| Real-time | Socket.IO | Live dashboard |
+| Charts | Recharts | Analytics |
+| Frontend deployment | Vercel or Render Static Site | React app |
+| Backend deployment | Render | Express API |
+| Code | GitHub | Repository + collaboration |
+| API testing | Postman | API testing |
+
+### Important
+
+"Free" services may have usage limits, rate limits or fair-use restrictions. The application must therefore have fallbacks.
+
+---
+
+# 13. AI Strategy — Hackathon Optimized
+
+Do NOT train a custom ML model during the hackathon.
+
+Use a **hybrid AI + rules architecture**.
+
+```text
+Incident Description
+        ↓
+Rule Preprocessing
+        ↓
+Gemini API
+        ↓
+Structured JSON response
+        ↓
+Validation
+        ↓
+Operator Review
+```
+
+If the AI API is unavailable:
+
+```text
+Gemini unavailable
+      ↓
+Rule-based classifier
+      ↓
+Continue application
+```
+
+This ensures the demo does not completely fail if the external AI API is unavailable.
+
+---
+
+# 14. AI Functions
+
+## 14.1 Incident Classification
+
+Input:
+
+```json
+{
+  "description": "Large fire reported near a crowded market",
+  "location": {
+    "lat": 23.03,
+    "lng": 72.58
+  }
+}
+```
+
+Expected output:
+
+```json
+{
+  "type": "fire",
+  "severity": "critical",
+  "priority": "P1",
+  "confidence": 0.94,
+  "summary": "A potentially critical fire has been reported in a crowded market.",
+  "recommendedActions": [
+    "Dispatch fire response team",
+    "Dispatch ambulance",
+    "Notify police/crowd control"
+  ]
+}
+```
+
+The backend must validate the response before storing it.
+
+---
+
+# 15. AI Prompt Requirements
+
+The AI must:
+
+- Return JSON only
+- Use predefined incident categories
+- Use predefined severity levels
+- Use predefined priority levels
+- Never invent resource IDs
+- Never claim that an emergency service has actually been contacted
+- Clearly identify suggestions as AI-generated
+- Allow operator override
+
+### Incident Categories
+
+```text
+fire
+flood
+medical
+accident
+industrial
+structural
+other
+```
+
+### Severity
+
+```text
+low
+medium
+high
+critical
+```
+
+### Priority
+
+```text
+P1
+P2
+P3
+P4
+```
+
+---
+
+# 16. Rule-Based Fallback Classifier
+
+The system should still work without AI.
+
+Example rules:
+
+```text
+"fire", "smoke", "burning" → fire
+"flood", "water level", "overflow" → flood
+"ambulance", "injured", "unconscious" → medical
+"crash", "collision", "vehicle accident" → accident
+"chemical", "factory", "gas leak" → industrial
+"building collapsed", "collapse" → structural
+```
+
+Severity can use keywords:
+
+```text
+critical:
+explosion, trapped, collapse, multiple casualties, spreading fire
+
+high:
+major fire, serious injury, heavy flooding
+
+medium:
+minor accident, localized flooding
+
+low:
+small incident, no injury
+```
+
+This is only a demo heuristic, not a real emergency decision system.
+
+---
+
+# 17. Duplicate Detection
+
+Duplicate detection will use a simple, explainable scoring system.
+
+## 17.1 Signals
+
+### Location
+
+Calculate distance between the new report and recent incidents.
+
+Default:
+
+```text
+Urban radius: 300 meters
+Time window: 10 minutes
+```
+
+### Text
+
+Compare normalized keywords.
+
+Example:
+
+```text
+Report A:
+"Fire at central market near gate 2"
+
+Report B:
+"Large fire near central market gate"
+```
+
+High similarity → duplicate candidate.
+
+## 17.2 Duplicate Score
+
+```text
+Location match       = 40%
+Time match           = 20%
+Text similarity      = 40%
+
+Duplicate score =
+locationScore +
+timeScore +
+textScore
+```
+
+If:
+
+```text
+score >= 0.75
+```
+
+show:
+
+> Possible duplicate incident
+
+Do NOT automatically merge in the first MVP.
+
+The operator should click:
+
+```text
+Merge Reports
+```
+
+---
+
+# 18. Resource Recommendation Engine
+
+A full optimization engine is unnecessary for the hackathon.
+
+Use a deterministic scoring system.
+
+## 18.1 Matching Factors
+
+```text
+Capability match  = 50%
+Availability      = 25%
+Distance           = 25%
+```
+
+Example:
+
+```text
+Fire Incident
+      ↓
+Required capability = fire_suppression
+      ↓
+Find available fire resources
+      ↓
+Calculate distance
+      ↓
+Rank resources
+      ↓
+Return top 3
+```
+
+## 18.2 Example Output
+
+```json
+[
+  {
+    "resourceId": "FT-04",
+    "matchScore": 94,
+    "distanceKm": 2.1,
+    "etaMinutes": 6
+  },
+  {
+    "resourceId": "FT-07",
+    "matchScore": 81,
+    "distanceKm": 4.8,
+    "etaMinutes": 11
+  }
+]
+```
+
+---
+
+# 19. Routing
+
+Use:
+
+- Leaflet for visualization
+- OpenStreetMap for map data
+- OSRM for demo route calculation
+
+The route should be considered a **demo estimate**, not a guaranteed emergency navigation service.
+
+Fallback:
+
+If routing fails:
+
+```text
+ETA = estimated distance / configured average speed
+```
+
+---
+
+# 20. Real-Time Communication
+
+Use Socket.IO.
+
+### Server events
+
+```text
+incident:created
+incident:updated
+incident:classified
+incident:assigned
+incident:resolved
+resource:updated
+alert:created
+```
+
+### Client events
+
+```text
+incident:submit
+resource:status
+incident:status
+alert:acknowledge
+```
+
+Example:
+
+```text
+Citizen submits report
+        ↓
+POST /api/v1/incidents
+        ↓
+MongoDB
+        ↓
+Socket.IO
+        ↓
+Operator Dashboard
+        ↓
+New incident appears without refresh
+```
+
+---
+
+# 21. Escalation Logic
+
+Use a simple timer-based mechanism.
+
+Example:
+
+```text
+P1 incident created
+        ↓
+2 minutes
+        ↓
+No resource assigned?
+        ↓
+Create warning alert
+        ↓
+5 minutes
+        ↓
+Still unassigned?
+        ↓
+Create critical escalation alert
+```
+
+For the hackathon, escalation rules should be configurable.
+
+Example:
+
+```json
+{
+  "P1": {
+    "warningAfterMinutes": 2,
+    "criticalAfterMinutes": 5
+  },
+  "P2": {
+    "warningAfterMinutes": 5,
+    "criticalAfterMinutes": 10
+  }
+}
+```
+
+---
+
+# 22. Notifications — Hackathon Version
+
+Do NOT integrate paid SMS or email services unless the team already has working credentials.
+
+### MVP
+
+Use:
+
+- In-app notifications
+- Dashboard alert feed
+- Socket.IO real-time alerts
+- Browser notification if permission is granted
+
+### Optional
+
+Cloud email/SMS integrations can be added later.
+
+---
+
+# 23. Image Uploads
+
+Image attachments are optional.
+
+Preferred approach:
+
+```text
+React
+ ↓
+Cloudinary upload
+ ↓
+Cloudinary URL
+ ↓
+Express API
+ ↓
+MongoDB stores URL
+```
+
+Do not store large image binaries directly in MongoDB.
+
+If Cloudinary setup becomes a time blocker:
+
+```text
+MVP fallback:
+Store only a demo image URL
+```
+
+---
+
+# 24. User Interface
+
+## 24.1 Pages
+
+```text
+/
+├── Login
+├── Citizen Report
+├── Track Incident
+├── Dashboard
+├── Incidents
+├── Incident Details
+├── Resources
+├── Alerts
+├── Analytics
+├── Responder
+└── Admin
+```
+
+---
+
+# 25. Command Center Dashboard
+
+The dashboard is the most important screen for the hackathon demo.
+
+## Layout
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ HEADER: Logo | Active Incidents | Alerts | User             │
+├──────────────┬───────────────────────────┬──────────────────┤
+│              │                           │                  │
+│ Incident     │                           │ Resource         │
+│ List         │       LIVE MAP            │ Panel            │
+│              │                           │                  │
+│ P1 Fire      │     ● Fire                │ Fire Team 04     │
+│ P2 Flood     │          ● Ambulance      │ Ambulance 12     │
+│ P3 Accident  │                           │ Police 03        │
+│              │                           │                  │
+├──────────────┴───────────────────────────┴──────────────────┤
+│ Alert Feed | Response Time | Active | Resolved | Resources  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 26. Dashboard KPI Cards
+
+Show:
+
+```text
+Active Incidents
+Critical Incidents
+Resources Deployed
+Average Response Time
+Pending Alerts
+Resolved Today
+```
+
+Keep the numbers derived from MongoDB.
+
+---
+
+# 27. Incident Detail Panel
+
+When the operator selects an incident:
+
+```text
+Incident #INC-10024
+
+Type: Fire
+Severity: Critical
+Priority: P1
+Status: Assigned
+
+Location:
+Central Market
+
+AI Confidence:
+94%
+
+AI Summary:
+Large fire reported...
+
+Reports:
+3 related reports
+
+Recommended Resources:
+1. Fire Truck FT-04
+2. Ambulance AMB-12
+3. Police Unit PU-03
+
+Actions:
+[Dispatch]
+[Change Priority]
+[Merge]
+[Escalate]
+[Resolve]
+```
+
+---
+
+# 28. Citizen Reporting Flow
+
+```text
+Citizen
+  ↓
+Open Report Page
+  ↓
+Select / describe emergency
+  ↓
+Allow location or enter location
+  ↓
+Optional image
+  ↓
+Submit
+  ↓
+Backend validation
+  ↓
+AI/rule classification
+  ↓
+Duplicate check
+  ↓
+Create incident
+  ↓
+Return tracking ID
+  ↓
+Show confirmation
+```
+
+---
+
+# 29. Responder Flow
+
+```text
+Login
+ ↓
+View assigned incident
+ ↓
+Accept assignment
+ ↓
+View location
+ ↓
+Open route
+ ↓
+Set status = EN_ROUTE
+ ↓
+Set status = ON_SCENE
+ ↓
+Add response note
+ ↓
+Set status = RESOLVED
+```
+
+---
+
+# 30. Incident State Machine
+
+```text
+REPORTED
+   ↓
+CLASSIFIED
+   ↓
+ASSIGNED
+   ↓
+EN_ROUTE
+   ↓
+ON_SCENE
+   ↓
+RESOLVED
+   ↓
+CLOSED
+```
+
+Possible alternate path:
+
+```text
+REPORTED
+   ↓
+DUPLICATE_CANDIDATE
+   ↓
+MERGED
+```
+
+---
+
+# 31. MongoDB Collections
+
+Use the following collections:
+
+```text
+users
+incidents
+sourceReports
+resources
+alerts
+analyticsEvents
+```
+
+Avoid creating unnecessary collections during the hackathon.
+
+---
+
+# 32. MongoDB Schema — Incident
+
+```js
+{
+  publicId: "INC-10024",
+
+  type: "fire",
+
+  severity: "critical",
+
+  priority: "P1",
+
+  status: "reported",
+
+  description: "Large fire near central market",
+
+  location: {
+    type: "Point",
+    coordinates: [72.58, 23.03]
+  },
+
+  address: "Central Market",
+
+  ai: {
+    classified: true,
+    confidence: 0.94,
+    summary: "Large fire reported...",
+    recommendedActions: [
+      "Dispatch fire team",
+      "Notify medical team"
+    ]
+  },
+
+  sourceReports: [],
+
+  assignedResources: [],
+
+  duplicateCandidates: [],
+
+  escalationLevel: 0,
+
+  createdAt: Date,
+
+  updatedAt: Date,
+
+  resolvedAt: null
+}
+```
+
+---
+
+# 33. MongoDB Schema — Source Report
+
+```js
+{
+  publicId: "REP-10001",
+
+  incidentId: "INC-10024",
+
+  sourceType: "citizen",
+
+  description: "There is a large fire near the market",
+
+  location: {
+    type: "Point",
+    coordinates: [72.58, 23.03]
+  },
+
+  attachmentUrl: null,
+
+  createdAt: Date
+}
+```
+
+---
+
+# 34. MongoDB Schema — Resource
+
+```js
+{
+  publicId: "FT-04",
+
+  type: "team",
+
+  subtype: "fire_team",
+
+  name: "Fire Team 04",
+
+  status: "available",
+
+  capabilities: [
+    "fire_suppression",
+    "rescue"
+  ],
+
+  location: {
+    type: "Point",
+    coordinates: [72.56, 23.04]
+  },
+
+  capacity: 6,
+
+  assignedIncidentId: null,
+
+  lastUpdated: Date
+}
+```
+
+---
+
+# 35. MongoDB Schema — User
+
+```js
+{
+  name: "Operator One",
+
+  email: "operator@example.com",
+
+  passwordHash: "...",
+
+  role: "operator",
+
+  organization: "Emergency Command Center",
+
+  createdAt: Date
+}
+```
+
+Roles:
+
+```text
+citizen
+responder
+operator
+admin
+hospital
+```
+
+---
+
+# 36. MongoDB Schema — Alert
+
+```js
+{
+  incidentId: "INC-10024",
+
+  type: "delayed_response",
+
+  severity: "critical",
+
+  message: "P1 incident has not received a response",
+
+  recipients: [],
+
+  acknowledged: false,
+
+  createdAt: Date,
+
+  acknowledgedAt: null
+}
+```
+
+---
+
+# 37. MongoDB Schema — Analytics Event
+
+```js
+{
+  incidentId: "INC-10024",
+
+  eventType: "assigned",
+
+  actorType: "operator",
+
+  actorId: "...",
+
+  metadata: {},
+
+  createdAt: Date
+}
+```
+
+---
+
+# 38. Geospatial Indexes
+
+MongoDB should use a `2dsphere` index for incident/resource locations.
+
+Example:
+
+```js
+incidentSchema.index({ location: "2dsphere" });
+resourceSchema.index({ location: "2dsphere" });
+```
+
+This allows nearby-resource and nearby-incident queries.
+
+---
+
+# 39. API Design
+
+Base URL:
+
+```text
+/api/v1
+```
+
+---
+
+# 40. Authentication APIs
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/auth/register` | Register |
+| POST | `/auth/login` | Login |
+| GET | `/auth/me` | Current user |
+
+For the hackathon, access tokens can be JWT-based.
+
+---
+
+# 41. Incident APIs
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/incidents` | Create incident |
+| GET | `/incidents` | List incidents |
+| GET | `/incidents/:id` | Get incident |
+| PATCH | `/incidents/:id` | Update incident |
+| POST | `/incidents/:id/classify` | AI classification |
+| POST | `/incidents/:id/merge` | Merge duplicate |
+| POST | `/incidents/:id/assign` | Assign resource |
+| POST | `/incidents/:id/escalate` | Escalate |
+| POST | `/incidents/:id/resolve` | Resolve |
+
+---
+
+# 42. Resource APIs
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/resources` | List resources |
+| GET | `/resources/:id` | Resource details |
+| PATCH | `/resources/:id/status` | Change status |
+| GET | `/resources/recommendations/:incidentId` | Recommended resources |
+| POST | `/resources/seed` | Seed demo resources |
+
+---
+
+# 43. Alert APIs
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/alerts` | List alerts |
+| PATCH | `/alerts/:id/acknowledge` | Acknowledge alert |
+
+---
+
+# 44. Analytics APIs
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/analytics/overview` | KPI data |
+| GET | `/analytics/types` | Incident type distribution |
+| GET | `/analytics/severity` | Severity distribution |
+| GET | `/analytics/response-time` | Response metrics |
+| GET | `/analytics/hotspots` | Map hotspot data |
+
+---
+
+# 45. Health API
+
+```text
+GET /health
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected",
+  "timestamp": "..."
+}
+```
+
+This endpoint is also useful for deployment health checks.
+
+---
+
+# 46. API Error Format
+
+Use one consistent format:
+
+```json
+{
+  "success": false,
+  "message": "Incident not found",
+  "code": "INCIDENT_NOT_FOUND"
+}
+```
+
+Success:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+---
+
+# 47. Backend Project Structure
+
+```text
+server/
+│
+├── src/
+│   ├── config/
+│   │   ├── db.js
+│   │   └── env.js
+│   │
+│   ├── controllers/
+│   │   ├── auth.controller.js
+│   │   ├── incident.controller.js
+│   │   ├── resource.controller.js
+│   │   ├── alert.controller.js
+│   │   └── analytics.controller.js
+│   │
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Incident.js
+│   │   ├── SourceReport.js
+│   │   ├── Resource.js
+│   │   ├── Alert.js
+│   │   └── AnalyticsEvent.js
+│   │
+│   ├── routes/
+│   │   ├── auth.routes.js
+│   │   ├── incident.routes.js
+│   │   ├── resource.routes.js
+│   │   ├── alert.routes.js
+│   │   └── analytics.routes.js
+│   │
+│   ├── services/
+│   │   ├── ai.service.js
+│   │   ├── classification.service.js
+│   │   ├── duplicate.service.js
+│   │   ├── resource.service.js
+│   │   ├── routing.service.js
+│   │   ├── alert.service.js
+│   │   └── analytics.service.js
+│   │
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   ├── errorHandler.js
+│   │   └── rateLimiter.js
+│   │
+│   ├── sockets/
+│   │   └── socket.js
+│   │
+│   ├── utils/
+│   │   ├── generateId.js
+│   │   └── logger.js
+│   │
+│   ├── seed/
+│   │   └── seedData.js
+│   │
+│   └── app.js
+│
+├── .env
+├── package.json
+└── server.js
+```
+
+---
+
+# 48. Frontend Project Structure
+
+```text
+client/
+│
+├── src/
+│   ├── components/
+│   │   ├── common/
+│   │   ├── dashboard/
+│   │   ├── incidents/
+│   │   ├── resources/
+│   │   ├── alerts/
+│   │   └── map/
+│   │
+│   ├── pages/
+│   │   ├── Login.jsx
+│   │   ├── CitizenReport.jsx
+│   │   ├── TrackIncident.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── IncidentDetails.jsx
+│   │   ├── Resources.jsx
+│   │   ├── Alerts.jsx
+│   │   ├── Analytics.jsx
+│   │   └── Responder.jsx
+│   │
+│   ├── services/
+│   │   ├── api.js
+│   │   └── socket.js
+│   │
+│   ├── hooks/
+│   │   └── useSocket.js
+│   │
+│   ├── context/
+│   │   └── AuthContext.jsx
+│   │
+│   ├── utils/
+│   │   └── formatters.js
+│   │
+│   ├── styles/
+│   │   ├── global.css
+│   │   ├── variables.css
+│   │   └── responsive.css
+│   │
+│   ├── App.jsx
+│   └── main.jsx
+│
+├── index.html
+├── package.json
+└── vite.config.js
+```
+
+---
+
+# 49. UI Design Principles
+
+The UI should look like an emergency operations dashboard, not a generic admin panel.
+
+## Design Requirements
+
+- High visual hierarchy
+- Clear severity indicators
+- Minimal unnecessary animation
+- Responsive layout
+- Large actionable buttons
+- Clear status badges
+- Map-centered dashboard
+- Readable typography
+- Strong contrast
+- Consistent spacing
+- Desktop-first command center
+- Mobile-responsive citizen/reporting pages
+
+### Severity indicators
+
+```text
+Critical → red
+High     → orange
+Medium   → yellow
+Low      → green
+```
+
+These colors are interface conventions for quick visual recognition.
+
+---
+
+# 50. Analytics
+
+Use MongoDB aggregation pipelines.
+
+## Metrics
+
+### Active Incidents
+
+```text
+status != resolved/closed
+```
+
+### Average Response Time
+
+```text
+on_scene_time - created_time
+```
+
+### Resolution Time
+
+```text
+resolved_time - created_time
+```
+
+### Resource Utilization
+
+```text
+assigned resources / total available resources
+```
+
+### Incident Distribution
+
+Group by:
+
+```text
+type
+severity
+priority
+status
+```
+
+---
+
+# 51. Charts
+
+Use Recharts.
+
+Recommended charts:
+
+1. Incidents by type — Bar chart
+2. Severity distribution — Pie chart
+3. Response time — Line chart
+4. Daily incidents — Area/Line chart
+5. Resource utilization — Bar chart
+
+Do not create excessive charts.
+
+The hackathon dashboard should prioritize operational information over decorative analytics.
+
+---
+
+# 52. Map Features
+
+Use Leaflet.
+
+## Map markers
+
+Incident markers:
+
+```text
+Fire       → critical/high marker
+Flood      → blue marker
+Medical    → medical marker
+Accident   → orange marker
+Other      → neutral marker
+```
+
+Resource markers:
+
+```text
+Fire Team
+Ambulance
+Police
+Rescue
+Hospital
+```
+
+## Map interactions
+
+- Click marker
+- Open incident summary
+- Center map
+- Show resource location
+- Show route when dispatched
+
+---
+
+# 53. Seed Data
+
+A seed script is mandatory for the hackathon.
+
+The demo should not depend on manually creating every resource.
+
+Seed:
+
+### Users
+
+```text
+1 admin
+1 operator
+2 responders
+1 citizen
+```
+
+### Resources
+
+```text
+5 fire teams
+5 ambulances
+3 police units
+3 rescue teams
+3 hospitals
+```
+
+### Incidents
+
+```text
+3 active incidents
+2 resolved incidents
+1 duplicate candidate
+```
+
+### Alerts
+
+```text
+1 warning
+1 critical
+```
+
+---
+
+# 54. Demo Data Location
+
+Use one consistent demo city.
+
+For example:
+
+```text
+Ahmedabad
+```
+
+All demo incidents and resources should be placed around a realistic but synthetic area.
+
+Do not represent synthetic data as real emergency events.
+
+---
+
+# 55. Complete Demo Scenario
+
+## Scenario: Market Fire
+
+### Step 1 — Citizen A
+
+Reports:
+
+> "There is a large fire near the market and people are trapped."
+
+### Step 2 — Citizen B
+
+Reports:
+
+> "Smoke and fire visible near the same market."
+
+### Step 3 — System
+
+The backend:
+
+```text
+receives reports
+      ↓
+classifies as FIRE
+      ↓
+estimates CRITICAL
+      ↓
+assigns P1
+      ↓
+checks recent nearby incidents
+      ↓
+detects possible duplicate
+```
+
+### Step 4 — Operator
+
+Dashboard displays:
+
+```text
+Possible duplicate detected
+
+Existing Incident:
+INC-10024
+
+New Report:
+REP-10031
+
+[Merge]
+[Keep Separate]
+```
+
+Operator chooses:
+
+```text
+Merge
+```
+
+### Step 5 — AI Summary
+
+System generates:
+
+> Large fire reported near a crowded market with multiple corroborating reports. Immediate fire response and medical support are recommended.
+
+### Step 6 — Resource Engine
+
+Recommended:
+
+```text
+Fire Team FT-04
+Ambulance AMB-02
+Police Unit PU-03
+```
+
+### Step 7 — Operator
+
+Clicks:
+
+```text
+Dispatch
+```
+
+### Step 8 — Real-Time Update
+
+Responder screen receives:
+
+```text
+NEW ASSIGNMENT
+INC-10024
+Market Fire
+Priority: P1
+```
+
+### Step 9 — Responder
+
+Changes:
+
+```text
+Assigned
+→ En Route
+→ On Scene
+```
+
+Dashboard updates instantly.
+
+### Step 10 — Escalation
+
+If the operator intentionally delays the demo:
+
+```text
+P1 response SLA exceeded
+```
+
+Dashboard displays:
+
+```text
+CRITICAL ESCALATION
+```
+
+### Step 11 — Resolution
+
+Responder clicks:
+
+```text
+Resolve Incident
+```
+
+### Step 12 — Analytics
+
+The system records:
+
+```text
+Response time
+Resource usage
+Incident duration
+Incident type
+Final status
+```
+
+The analytics dashboard updates.
+
+---
+
+# 56. Authentication
+
+For hackathon MVP:
+
+```text
+JWT Access Token
++
+bcrypt password hashing
++
+Role-based middleware
+```
+
+Example:
+
+```text
+requireAuth
+requireRole("operator")
+```
+
+Do not implement OAuth unless required.
+
+---
+
+# 57. Security
+
+Minimum security requirements:
+
+- Environment variables for secrets
+- Password hashing
+- JWT authentication
+- Role-based authorization
+- Helmet
+- CORS configuration
+- Rate limiting
+- Request validation
+- No API keys in frontend
+- No database credentials in GitHub
+- Sanitize user-generated content where displayed
+
+---
+
+# 58. Environment Variables
+
+Backend:
+
+```env
+PORT=5000
+
+MONGODB_URI=...
+
+JWT_SECRET=...
+
+GEMINI_API_KEY=...
+
+CLIENT_URL=http://localhost:5173
+
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+```
+
+Optional services should not prevent the application from starting if their keys are missing.
+
+---
+
+# 59. Environment Strategy
+
+### Development
+
+```text
+React → localhost:5173
+Express → localhost:5000
+MongoDB → Atlas
+```
+
+### Production Demo
+
+```text
+React → Vercel/Render
+Express → Render
+MongoDB → MongoDB Atlas
+```
+
+---
+
+# 60. Deployment Strategy
+
+## Frontend
+
+Preferred:
+
+```text
+Vercel
+```
+
+or:
+
+```text
+Render Static Site
+```
+
+## Backend
+
+Preferred:
+
+```text
+Render Web Service
+```
+
+The Express server must listen on the platform-provided `PORT`.
+
+## Database
+
+```text
+MongoDB Atlas
+```
+
+---
+
+# 61. Free Deployment Reality
+
+Free hosting is appropriate for a hackathon demo, but it is not equivalent to production emergency infrastructure.
+
+For example, free Render web services can spin down after inactivity and may take time to wake up. Therefore:
+
+- Do not claim guaranteed 99.9% uptime
+- Do not claim production emergency-service reliability
+- Keep a local demo environment ready
+- Test deployment before presentation
+
+---
+
+# 62. Performance Requirements — Hackathon
+
+Do not use unrealistic production-scale requirements.
+
+Target:
+
+| Metric | MVP Target |
+|---|---|
+| API response | < 1 second for normal CRUD |
+| Dashboard update | < 2 seconds |
+| AI response | < 15 seconds |
+| Resource recommendation | < 2 seconds |
+| Initial dashboard load | < 3 seconds on normal demo connection |
+| Demo concurrent users | 5–20 |
+| Seed incidents | 10–100 |
+
+These are hackathon targets, not production SLAs.
+
+---
+
+# 63. Scalability Strategy
+
+The MVP should be structured so it can scale later without requiring a rewrite.
+
+## Current
+
+```text
+React
+ ↓
+Express
+ ↓
+MongoDB
+```
+
+## Future
+
+```text
+React
+ ↓
+API Gateway
+ ↓
+Multiple Node services
+ ↓
+Message Queue
+ ↓
+MongoDB + Redis + specialized databases
+```
+
+The code should therefore separate:
+
+```text
+controllers
+services
+models
+routes
+```
+
+without implementing microservices now.
+
+---
+
+# 64. Testing Strategy
+
+## Backend
+
+Test:
+
+- Authentication
+- Incident creation
+- Incident classification
+- Duplicate detection
+- Resource recommendation
+- Assignment
+- Escalation
+- Resolution
+
+## Frontend
+
+Test:
+
+- Login
+- Citizen report
+- Dashboard rendering
+- Incident filtering
+- Dispatch
+- Status updates
+- Analytics
+
+## Demo Testing
+
+Perform the complete Market Fire scenario at least 3 times before presentation.
+
+---
+
+# 65. Minimum Test Cases
+
+### TC-01
+
+Create a valid fire incident.
+
+Expected:
+
+```text
+201 Created
+```
+
+### TC-02
+
+Create incident without description.
+
+Expected:
+
+```text
+400 Bad Request
+```
+
+### TC-03
+
+Create nearby incident within duplicate window.
+
+Expected:
+
+```text
+duplicate candidate detected
+```
+
+### TC-04
+
+Dispatch unavailable resource.
+
+Expected:
+
+```text
+400/409 error
+```
+
+### TC-05
+
+P1 incident remains unassigned.
+
+Expected:
+
+```text
+escalation alert
+```
+
+### TC-06
+
+Responder changes status.
+
+Expected:
+
+```text
+dashboard updates through Socket.IO
+```
+
+---
+
+# 66. Development Priority
+
+Use this order strictly.
+
+## Priority 1 — Must Work
+
+```text
+MongoDB
+Express API
+React UI
+Incident creation
+Incident dashboard
+Resource data
+Dispatch
+Incident status
+```
+
+## Priority 2 — Differentiators
+
+```text
+Socket.IO
+AI classification
+Duplicate detection
+Resource recommendation
+Map
+Escalation
+```
+
+## Priority 3 — Polish
+
+```text
+Analytics
+Image upload
+Advanced animations
+Responder view
+AI recommendations
+```
+
+## Priority 4 — Optional
+
+```text
+Email
+SMS
+Voice
+Computer vision
+Advanced routing
+Multilingual AI
+```
+
+---
+
+# 67. Suggested Hackathon Timeline
+
+## Phase 1 — Foundation
+
+### Task 1
+
+Create GitHub repository.
+
+### Task 2
+
+Create:
+
+```text
+/client
+/server
+```
+
+### Task 3
+
+Set up React + Vite.
+
+### Task 4
+
+Set up Express.
+
+### Task 5
+
+Connect MongoDB Atlas.
+
+### Task 6
+
+Create basic schemas.
+
+---
+
+# 68. Phase 2 — Core Backend
+
+Implement:
+
+```text
+User
+Incident
+Resource
+Alert
+AnalyticsEvent
+```
+
+Then:
+
+```text
+POST /incidents
+GET /incidents
+GET /incidents/:id
+PATCH /incidents/:id
+```
+
+---
+
+# 69. Phase 3 — Core Frontend
+
+Build:
+
+```text
+Login
+Dashboard
+Incident List
+Incident Details
+Citizen Report
+Resources
+```
+
+Do not spend too much time on animations at this stage.
+
+---
+
+# 70. Phase 4 — Map
+
+Implement:
+
+```text
+Leaflet
++
+OpenStreetMap
+```
+
+Show:
+
+```text
+Incident markers
+Resource markers
+```
+
+Then add:
+
+```text
+OSRM route
+```
+
+only if the core map works.
+
+---
+
+# 71. Phase 5 — AI
+
+Implement one AI endpoint:
+
+```text
+POST /incidents/:id/classify
+```
+
+It should return:
+
+```text
+type
+severity
+priority
+confidence
+summary
+recommendedActions
+```
+
+Then connect it to the dashboard.
+
+---
+
+# 72. Phase 6 — Duplicate Detection
+
+Implement:
+
+```text
+location
++
+time
++
+keyword similarity
+```
+
+Show operator confirmation.
+
+---
+
+# 73. Phase 7 — Real-Time
+
+Add Socket.IO.
+
+Start with:
+
+```text
+incident:created
+incident:updated
+resource:updated
+alert:created
+```
+
+---
+
+# 74. Phase 8 — Resource Engine
+
+Implement:
+
+```text
+findAvailableResources()
+calculateDistance()
+calculateMatchScore()
+recommendTopResources()
+```
+
+Keep it deterministic and explainable.
+
+---
+
+# 75. Phase 9 — Escalation
+
+Use `node-cron` or server-side timers.
+
+Check:
+
+```text
+P1 → 2 min warning
+P1 → 5 min critical
+```
+
+For the demo, thresholds can be reduced/configured so the feature can be shown quickly.
+
+---
+
+# 76. Phase 10 — Analytics
+
+Create:
+
+```text
+overview
+incident types
+severity
+response time
+resource utilization
+```
+
+Then visualize with Recharts.
+
+---
+
+# 77. Phase 11 — Demo Polish
+
+Add:
+
+- Loading states
+- Empty states
+- Error messages
+- Toast notifications
+- Responsive design
+- Consistent icons
+- Smooth but minimal transitions
+- Clear severity badges
+- Demo seed button
+
+---
+
+# 78. Git Workflow
+
+Use:
+
+```text
+main
+develop
+feature/*
+```
+
+Suggested branches:
+
+```text
+feature/backend
+feature/frontend
+feature/map
+feature/ai
+feature/realtime
+feature/analytics
+```
+
+Merge stable features into `develop`.
+
+---
+
+# 79. Environment and Secrets Rules
+
+Never commit:
+
+```text
+.env
+API keys
+JWT secret
+MongoDB password
+Cloudinary secret
+```
+
+Commit:
+
+```text
+.env.example
+```
+
+Example:
+
+```env
+MONGODB_URI=
+JWT_SECRET=
+GEMINI_API_KEY=
+```
+
+---
+
+# 80. API Integration Pattern
+
+Frontend:
+
+```js
+axios.get("/api/v1/incidents")
+```
+
+Backend:
+
+```text
+route
+ ↓
+controller
+ ↓
+service
+ ↓
+model
+ ↓
+MongoDB
+```
+
+Keep business logic out of route files.
+
+---
+
+# 81. Real-Time Integration Pattern
+
+```js
+io.emit("incident:created", incident);
+```
+
+React:
+
+```js
+socket.on("incident:created", (incident) => {
+  // update dashboard
+});
+```
+
+The dashboard must not require a full refresh after an incident is created.
+
+---
+
+# 82. AI Failure Handling
+
+If Gemini fails:
+
+```text
+Gemini API error
+      ↓
+Log error
+      ↓
+Run fallback classifier
+      ↓
+Continue incident workflow
+```
+
+The user should never see:
+
+```text
+"Gemini API failed"
+```
+
+as the only result.
+
+Instead:
+
+```text
+AI unavailable — using automated fallback classification.
+```
+
+---
+
+# 83. External API Failure Handling
+
+For every external service:
+
+```text
+External service
+      ↓
+Success → use result
+      ↓
+Failure → fallback
+```
+
+Examples:
+
+### OSRM fails
+
+Use straight-line distance + approximate ETA.
+
+### Cloudinary fails
+
+Continue without image attachment.
+
+### Gemini fails
+
+Use rule-based classifier.
+
+### OSM tile issue
+
+Keep incident list and dashboard functional.
+
+---
+
+# 84. Accessibility
+
+Minimum requirements:
+
+- Semantic HTML
+- Keyboard-accessible buttons
+- Visible focus states
+- Sufficient contrast
+- Labels for form fields
+- Alt text for meaningful images
+- Do not rely only on color for severity
+
+---
+
+# 85. Responsible AI Requirements
+
+This system is a **decision-support prototype**, not an autonomous emergency authority.
+
+AI output must:
+
+- Be reviewable
+- Be editable
+- Show confidence when available
+- Never automatically claim that an emergency service has been contacted
+- Never replace operator judgment
+- Be clearly identified as AI-generated
+
+The demo should explicitly state:
+
+> AI recommendations are advisory and require human verification.
+
+---
+
+# 86. Data Privacy
+
+For the hackathon:
+
+- Use synthetic/demo emergency data
+- Do not use real patient records
+- Do not use real emergency call recordings
+- Avoid storing unnecessary personal information
+- Do not publish API secrets
+- Use fake names and phone numbers in seeded data
+
+---
+
+# 87. Demo Mode
+
+Create:
+
+```text
+Demo Mode
+```
+
+The admin can start:
+
+```text
+Market Fire Simulation
+```
+
+This should generate:
+
+```text
+Report 1
+Report 2
+Sensor-like report
+Incident classification
+Duplicate candidate
+Resource recommendations
+Dispatch
+Status changes
+Escalation
+Resolution
+Analytics
+```
+
+This feature can become the strongest hackathon presentation element.
+
+---
+
+# 88. Demo Simulation API
+
+Optional endpoint:
+
+```text
+POST /api/v1/demo/market-fire
+```
+
+It should create controlled synthetic events.
+
+Example:
+
+```json
+{
+  "scenario": "market_fire"
+}
+```
+
+The backend generates the demo sequence.
+
+---
+
+# 89. Demo Simulation Timeline
+
+```text
+T+00s → Citizen report
+T+05s → Second report
+T+10s → Duplicate candidate
+T+15s → AI classification
+T+20s → Resource recommendation
+T+30s → Operator dispatch
+T+40s → Responder EN_ROUTE
+T+60s → Responder ON_SCENE
+T+90s → Incident RESOLVED
+```
+
+This should be configurable so the team can demonstrate the entire workflow quickly.
+
+---
+
+# 90. Future Enhancements
+
+After the hackathon, the platform can evolve toward:
+
+- Kafka/event streaming
+- Redis
+- Dedicated geospatial infrastructure
+- Vector search
+- Custom ML models
+- Computer vision
+- Voice-to-incident
+- Multilingual reporting
+- Hospital integration
+- Weather integration
+- Traffic integration
+- IoT integration
+- Offline responder mode
+- Native mobile app
+- Advanced route optimization
+- Predictive incident forecasting
+- Resource demand forecasting
+- Multi-district coordination
+- Production observability
+- High availability deployment
+
+These are future architecture items, not MVP requirements.
+
+---
+
+# 91. Original Architecture Decisions Replaced
+
+The original PRD proposed several technologies that are intentionally removed from the hackathon implementation.
+
+| Original | Hackathon Decision |
+|---|---|
+| React + Next.js | React + Vite |
+| Tailwind | CSS |
+| FastAPI | Node.js + Express.js |
+| PostgreSQL | Removed |
+| PostGIS | Removed |
+| MongoDB + PostgreSQL | MongoDB only |
+| Redis | Removed for MVP |
+| Vector DB | Removed |
+| Kafka/RabbitMQ | Removed |
+| Kubernetes | Removed |
+| Prometheus/Grafana | Removed |
+| Multiple microservices | Modular monolith |
+| Custom ML training | Gemini + rules |
+| Twilio/SendGrid | In-app notifications first |
+| Full MLOps | Removed |
+| Production-scale infrastructure | Hackathon-scale targets |
+
+The goal is not to reduce the product's impact; it is to reduce implementation risk.
+
+---
+
+# 92. Final Technology Stack
+
+```text
+FRONTEND
+React.js
+Vite
+CSS3
+React Router
+Axios
+Socket.IO Client
+React-Leaflet
+Recharts
+Lucide React
+
+BACKEND
+Node.js
+Express.js
+Mongoose
+Socket.IO
+JWT
+bcryptjs
+Helmet
+CORS
+express-rate-limit
+node-cron
+
+DATABASE
+MongoDB Atlas
+
+AI
+Gemini API
+Rule-based fallback
+
+MAP
+Leaflet
+OpenStreetMap
+OSRM
+
+MEDIA
+Cloudinary (optional)
+
+DEPLOYMENT
+Vercel / Render
+Render
+MongoDB Atlas
+
+TOOLS
+VS Code
+Git
+GitHub
+Postman
+MongoDB Compass
+```
+
+---
+
+# 93. Final MVP Feature Checklist
+
+## Must Have
+
+- [ ] React application
+- [ ] CSS-based responsive UI
+- [ ] Express API
+- [ ] MongoDB Atlas connection
+- [ ] Authentication
+- [ ] Citizen report
+- [ ] Incident CRUD
+- [ ] Operator dashboard
+- [ ] Incident map
+- [ ] Resource list
+- [ ] Manual dispatch
+- [ ] Incident status tracking
+- [ ] Socket.IO live updates
+- [ ] AI classification
+- [ ] AI summary
+- [ ] Rule-based fallback
+- [ ] Duplicate detection
+- [ ] Resource recommendation
+- [ ] Escalation alerts
+- [ ] Analytics
+- [ ] Demo seed data
+- [ ] Market Fire demo
+
+## Should Have
+
+- [ ] Cloudinary image upload
+- [ ] OSRM route
+- [ ] Responder view
+- [ ] Browser notifications
+- [ ] Incident timeline
+- [ ] Advanced filters
+
+## Nice to Have
+
+- [ ] Voice input
+- [ ] Multilingual AI
+- [ ] Image analysis
+- [ ] Email
+- [ ] SMS
+- [ ] Advanced forecasting
+
+---
+
+# 94. Definition of Done
+
+The project is ready for judging when:
+
+1. A citizen can submit an incident.
+2. The incident reaches MongoDB.
+3. The operator sees it without refreshing.
+4. AI/rules classify the incident.
+5. Severity and priority are displayed.
+6. Duplicate candidates can be identified.
+7. Resources are recommended.
+8. Operator can dispatch a resource.
+9. Responder status changes are reflected live.
+10. Delayed P1 incidents generate escalation alerts.
+11. Incident can be resolved.
+12. Analytics reflect the completed incident.
+13. The entire Market Fire scenario can be demonstrated from start to finish.
+14. The application continues to function if optional external services fail.
+
+---
+
+# 95. Hackathon Presentation Flow
+
+Use this order for the final presentation:
+
+```text
+1. Problem
+      ↓
+2. Fragmented emergency reports
+      ↓
+3. Our unified platform
+      ↓
+4. Citizen submits fire report
+      ↓
+5. AI classifies it as P1
+      ↓
+6. Second report arrives
+      ↓
+7. Duplicate detection
+      ↓
+8. Resource recommendation
+      ↓
+9. Operator dispatch
+      ↓
+10. Live responder tracking
+      ↓
+11. Escalation
+      ↓
+12. Resolution
+      ↓
+13. Analytics
+      ↓
+14. Impact and future scalability
+```
+
+---
+
+# 96. One-Line Product Pitch
+
+> **A real-time AI-assisted emergency command platform that turns fragmented reports into coordinated response.**
+
+---
+
+# 97. Final Engineering Principle
+
+For this hackathon:
+
+> **Build the complete workflow, not the complete infrastructure.**
+
+A stable end-to-end system with:
+
+```text
+React
++
+Express
++
+MongoDB
++
+Socket.IO
++
+AI
++
+Map
+```
+
+is more valuable for the demo than a partially implemented system containing:
+
+```text
+Kafka
++
+Redis
++
+Kubernetes
++
+PostgreSQL
++
+Vector DB
++
+Microservices
+```
+
+The architecture should remain clean enough to scale later, but the implementation should stay deliberately simple until the core emergency-response workflow is working.
