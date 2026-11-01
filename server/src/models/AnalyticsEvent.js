@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 
 const analyticsEventSchema = new mongoose.Schema(
   {
@@ -28,6 +29,11 @@ const analyticsEventSchema = new mongoose.Schema(
         "operator_ai_override",
         "alert_created",
         "alert_acknowledged",
+        "resource_shortage",
+        "false_report_dismissed",
+        "auto_dispatch",
+        "dispatch_recalled",
+        "notification_failed",
       ],
       required: true,
     },
@@ -63,12 +69,7 @@ analyticsEventSchema.index({ incidentId: 1 });
 analyticsEventSchema.index({ timestamp: -1 });
 analyticsEventSchema.index({ publicId: 1 }, { unique: true });
 
-analyticsEventSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("AnalyticsEvent").countDocuments();
-    this.publicId = `EVT-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+analyticsEventSchema.plugin(publicIdPlugin, { modelName: "AnalyticsEvent", prefix: "EVT" });
 
 module.exports = mongoose.model("AnalyticsEvent", analyticsEventSchema);

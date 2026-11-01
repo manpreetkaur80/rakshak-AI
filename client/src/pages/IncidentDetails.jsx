@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { incidentAPI, resourceAPI } from "../services/api";
+import { incidentAPI, resourceAPI, assetUrl } from "../services/api";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
 import AppLayout from "../components/common/AppLayout";
@@ -55,13 +55,15 @@ export default function IncidentDetails() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("incident:updated", (data) => {
+    const onUpdated = (data) => {
       if (data.publicId === incident?.publicId) setIncident((prev) => ({ ...prev, ...data }));
-    });
-    socket.on("incident:classified", (data) => {
+    };
+    const onClassified = (data) => {
       if (data.publicId === incident?.publicId) setIncident((prev) => ({ ...prev, ...data }));
-    });
-    return () => { socket.off("incident:updated"); socket.off("incident:classified"); };
+    };
+    socket.on("incident:updated", onUpdated);
+    socket.on("incident:classified", onClassified);
+    return () => { socket.off("incident:updated", onUpdated); socket.off("incident:classified", onClassified); };
   }, [incident?.publicId]);
 
   const doAction = async (action, fn, successMsg) => {
@@ -80,14 +82,74 @@ export default function IncidentDetails() {
     }
   };
 
+  const handleSummary = () =>
+    doAction("summary", () => incidentAPI.regenerateSummary(incident.publicId), "Summary regenerated from all reports");
+
+  const handleAutoDispatch = () =>
+    doAction("autodispatch", () => incidentAPI.autoDispatch(incident.publicId), "Recommended response package dispatched");
+
+  const handleRecall = () => {
+    if (!window.confirm("Recall all units from this incident?")) return;
+    doAction("recall", () => incidentAPI.recall(incident.publicId), "Dispatch recalled – units are available again");
+  };
+
+  const handleDismiss = () => {
+    const reason = window.prompt("Dismiss as a false report? Optional reason:");
+    if (reason === null) return;
+    doAction("dismiss", () => incidentAPI.dismiss(incident.publicId, { reason }), "Incident dismissed as a false report");
+  };
+
+  const handleReport = async () => {
+    setActionLoading("report");
+    try {
+      const res = await incidentAPI.report(incident.publicId);
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${incident.publicId}_report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      addToast(getErrorMessage(err), "error");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleUnmerge = () =>
+    doAction("unmerge", () => incidentAPI.unmerge(incident.publicId), "Incident split out again");
+
   const handleClassify = () =>
     doAction("classify", () => incidentAPI.classify(incident.publicId), "Incident re-classified");
 
   const handleDispatch = (resourceId) =>
     doAction("dispatch", () => incidentAPI.assign(incident.publicId, { resourceIds: [resourceId] }), "Resource dispatched");
 
-  const handleMerge = (sourceId) =>
-    doAction("merge", () => incidentAPI.merge(incident.publicId, { sourceIncidentId: sourceId }), "Reports merged");
+  const handleMerge = async (sourceId) => {
+    if (!sourceId) return;
+    setActionLoading("merge");
+    setError("");
+    try {
+      const res = await incidentAPI.merge(incident.publicId, { sourceIncidentId: sourceId });
+      addToast("Reports merged", "success");
+      // The server decides which incident survives; follow it if it is not this one.
+      const primaryId = res.data?.data?.primaryId;
+      if (primaryId && primaryId !== incident.publicId) {
+        navigate(`/incidents/${primaryId}`);
+      } else {
+        await loadIncident();
+      }
+    } catch (err) {
+      const msg = getErrorMessage(err);
+      setError(msg);
+      addToast(msg, "error");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleRejectDuplicate = (candidateId) =>
+    doAction("reject", () => incidentAPI.rejectDuplicate(incident.publicId, { candidateId }), "Marked as not a duplicate");
 
   const handleEscalate = () =>
     doAction("escalate", () => incidentAPI.escalate(incident.publicId, { reason: "Manual escalation by operator" }), "Incident escalated");
@@ -109,6 +171,7 @@ export default function IncidentDetails() {
 
   const isActive = !["RESOLVED", "CLOSED", "MERGED"].includes(incident.status);
   const ai = incident.aiClassification;
+  const canUnmerge = canOperate && incident.status === "MERGED";
   const dupCandidates = (incident.duplicateCandidates || []).filter((d) => d.status === "pending");
 
   return (
@@ -127,8 +190,40 @@ export default function IncidentDetails() {
           <h1 className="page-title" style={{ fontSize: 18 }}>{incident.title}</h1>
           <p className="page-subtitle">{incident.address || "Location not specified"} · {formatTimeAgo(incident.createdAt)}</p>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={loadIncident}><RefreshCw size={14} /></button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {canUnmerge && (
+            <button className="btn btn-warning btn-sm" onClick={handleUnmerge} disabled={!!actionLoading}>
+              Undo merge
+            </button>
+          )}
+          {canOperate && isActive && (
+            <button className="btn btn-primary btn-sm" onClick={handleAutoDispatch} disabled={!!actionLoading}>
+              <Zap size={14} /> Auto-dispatch package
+            </button>
+          )}
+          {canOperate && isActive && ["ASSIGNED", "EN_ROUTE"].includes(incident.status) && (
+            <button className="btn btn-warning btn-sm" onClick={handleRecall} disabled={!!actionLoading}>Recall</button>
+          )}
+          {canOperate && isActive && (
+            <button className="btn btn-ghost btn-sm" onClick={handleDismiss} disabled={!!actionLoading}>False report</button>
+          )}
+          {canOperate && (
+            <button className="btn btn-ghost btn-sm" onClick={handleReport} disabled={!!actionLoading}>📄 Report (PDF)</button>
+          )}
+          <button className="btn btn-ghost btn-sm" onClick={loadIncident}><RefreshCw size={14} /></button>
+        </div>
       </div>
+
+      {canOperate && incident.credibility?.level && incident.credibility.level !== "high" && (
+        <div className={`alert-strip ${incident.credibility.level === "low" ? "error" : "warning"}`} style={{ marginBottom: 16 }}>
+          🕵️ <strong>{incident.credibility.level === "low" ? "Low" : "Medium"} credibility</strong> ({Math.round(incident.credibility.score * 100)}%)
+          {incident.credibility.flags?.length > 0 && ` — ${incident.credibility.flags.join("; ")}`}.
+          {incident.credibility.level === "low" ? " Verify before dispatching." : ""}
+        </div>
+      )}
+      {incident.autoDispatched && (
+        <div className="alert-strip info" style={{ marginBottom: 16 }}>⚡ Units were dispatched automatically. Use <strong>Recall</strong> to override.</div>
+      )}
 
       {error && <div className="alert-strip error" style={{ marginBottom: 16 }}>❌ {error}</div>}
 
@@ -143,7 +238,7 @@ export default function IncidentDetails() {
             </div>
             <p style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.6 }}>{incident.description}</p>
             {incident.imageUrl && (
-              <img src={incident.imageUrl} alt="Incident" style={{ marginTop: 12, maxWidth: "100%", borderRadius: 6, border: "1px solid var(--border)" }} />
+              <img src={assetUrl(incident.imageUrl)} alt="Incident" style={{ marginTop: 12, maxWidth: "100%", borderRadius: 6, border: "1px solid var(--border)" }} />
             )}
           </div>
 
@@ -189,24 +284,28 @@ export default function IncidentDetails() {
                     <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>
                       Matches: {dup.incidentId?.publicId || "Unknown"}
                     </span>
-                    <span style={{ color: "var(--warning)", fontWeight: 700 }}>{Math.round(dup.score * 100)}% match</span>
+                    <span style={{ color: "var(--warning)", fontWeight: 700 }}>{Math.round((dup.score || 0) * 100)}% match</span>
                   </div>
                   <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
-                    <span>📍 Location: {Math.round(dup.locationScore * 100)}%</span>
-                    <span>⏱ Time: {Math.round(dup.timeScore * 100)}%</span>
-                    <span>📝 Text: {Math.round(dup.textScore * 100)}%</span>
+                    <span>📍 Location: {Math.round((dup.locationScore || 0) * 100)}%</span>
+                    <span>⏱ Time: {Math.round((dup.timeScore || 0) * 100)}%</span>
+                    <span>📝 Text: {Math.round((dup.textScore || 0) * 100)}%</span>
                   </div>
                   {canOperate && (
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
                         className="btn btn-warning btn-sm"
                         onClick={() => handleMerge(dup.incidentId?.publicId)}
-                        disabled={!!actionLoading}
+                        disabled={!!actionLoading || !dup.incidentId?.publicId}
                       >
                         <Merge size={12} /> Confirm & Merge
                       </button>
-                      <button className="btn btn-ghost btn-sm" disabled={!!actionLoading}>
-                        Keep Separate
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleRejectDuplicate(dup.incidentId?.publicId)}
+                        disabled={!!actionLoading || !dup.incidentId?.publicId}
+                      >
+                        Not a duplicate
                       </button>
                     </div>
                   )}
@@ -257,8 +356,11 @@ export default function IncidentDetails() {
                     <button className="btn btn-ghost btn-sm" onClick={handleClassify} disabled={!!actionLoading}>
                       <Cpu size={13} /> {actionLoading === "classify" ? "Classifying..." : "Re-Classify (AI)"}
                     </button>
-                    <button className="btn btn-warning btn-sm" onClick={handleEscalate} disabled={!!actionLoading || incident.escalation?.isEscalated}>
-                      <AlertTriangle size={13} /> {incident.escalation?.isEscalated ? "Escalated" : "Escalate Incident"}
+                    <button className="btn btn-ghost btn-sm" onClick={handleSummary} disabled={!!actionLoading}>
+                      <Cpu size={13} /> {actionLoading === "summary" ? "Summarising..." : "Regenerate Summary"}
+                    </button>
+                    <button className="btn btn-warning btn-sm" onClick={handleEscalate} disabled={!!actionLoading || incident.escalation?.level === "critical"}>
+                      <AlertTriangle size={13} /> {incident.escalation?.level === "critical" ? "Escalated" : "Escalate Incident"}
                     </button>
                   </>
                 )}
@@ -361,11 +463,19 @@ export default function IncidentDetails() {
           {incident.sourceReports?.length > 0 && (
             <div className="card">
               <div className="card-header">
-                <span className="card-title">Source Reports ({incident.sourceReports.length})</span>
+                <span className="card-title">
+                  Source Reports ({incident.sourceReports.length}
+                  {new Set(incident.sourceReports.map((r) => r.sourceType || "web")).size > 1
+                    ? ` from ${new Set(incident.sourceReports.map((r) => r.sourceType || "web")).size} sources`
+                    : ""})
+                </span>
               </div>
               {incident.sourceReports.map((rep, i) => (
                 <div key={i} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-                  <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>{rep.publicId} · {formatTimeAgo(rep.createdAt)}</div>
+                  <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>
+                    <span className="badge" style={{ marginRight: 6, textTransform: "uppercase", fontSize: 10 }}>{rep.sourceType || "web"}</span>
+                    {rep.sourceRef ? `${rep.sourceRef} · ` : ""}{rep.publicId} · {formatTimeAgo(rep.createdAt)}
+                  </div>
                   <div style={{ color: "var(--text-secondary)" }}>{rep.description?.substring(0, 100)}</div>
                 </div>
               ))}

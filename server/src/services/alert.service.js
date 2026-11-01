@@ -24,6 +24,9 @@ async function createAlert({ type, severity, title, message, incidentId = null, 
     console.warn("Failed to record analytics event for alert:", e.message);
   }
 
+  // Role-based delivery (in-app / e-mail / SMS). Background in production, awaited in tests.
+  await require("./notification.service").run(require("./notification.service").notifyForAlert(alert));
+
   return alert;
 }
 

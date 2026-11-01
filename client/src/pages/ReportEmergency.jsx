@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { incidentAPI } from "../services/api";
-import { useAuth } from "../context/AuthContext";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { incidentAPI, uploadAPI } from "../services/api";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getErrorMessage, TYPE_ICONS } from "../utils/helpers";
@@ -36,9 +35,23 @@ function LocationPicker({ onLocationChange }) {
   return null;
 }
 
+// Re-centre the map whenever the marker is set from outside the map (e.g. geolocation).
+function FlyToMarker({ position }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) map.flyTo(position, Math.max(map.getZoom(), 15));
+  }, [position, map]);
+  return null;
+}
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
 export default function ReportEmergency() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const fileRef = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   const [form, setForm] = useState({
     type: "",
@@ -46,6 +59,7 @@ export default function ReportEmergency() {
     address: "",
   });
   const [markerPos, setMarkerPos] = useState(null);
+  const [flyTarget, setFlyTarget] = useState(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,7 +76,9 @@ export default function ReportEmergency() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setMarkerPos([pos.coords.latitude, pos.coords.longitude]);
+        const p = [pos.coords.latitude, pos.coords.longitude];
+        setMarkerPos(p);
+        setFlyTarget(p);
         setGeoLoading(false);
       },
       () => {
@@ -71,6 +87,32 @@ export default function ReportEmergency() {
       },
       { timeout: 8000 }
     );
+  };
+
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+
+  const handleImagePick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!IMAGE_TYPES.includes(file.type)) {
+      setError("Only PNG, JPG or WebP images are allowed");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("Image must be 5 MB or smaller");
+      e.target.value = "";
+      return;
+    }
+    setError("");
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   useEffect(() => {
@@ -93,7 +135,19 @@ export default function ReportEmergency() {
 
     setSubmitting(true);
     try {
+      let imageUrl;
+      if (imageFile) {
+        try {
+          const up = await uploadAPI.image(imageFile);
+          imageUrl = up.data?.data?.url;
+        } catch (upErr) {
+          setError(`Image upload failed: ${getErrorMessage(upErr)}. Remove the image or try again.`);
+          setSubmitting(false);
+          return;
+        }
+      }
       const payload = {
+        ...(imageUrl ? { imageUrl } : {}),
         type: form.type || undefined,
         description: form.description.trim(),
         address: form.address.trim() || "Location selected on map",
@@ -171,7 +225,7 @@ export default function ReportEmergency() {
             <button className="btn btn-primary" onClick={() => navigate(`/track?id=${result.publicId}`)}>
               Track Incident
             </button>
-            <button className="btn btn-ghost" onClick={() => { setResult(null); setForm({ type: "", description: "", address: "" }); setMarkerPos(null); }}>
+            <button className="btn btn-ghost" onClick={() => { setResult(null); setForm({ type: "", description: "", address: "" }); setMarkerPos(null); clearImage(); }}>
               Report Another
             </button>
           </div>
@@ -181,9 +235,9 @@ export default function ReportEmergency() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex" }}>
+    <div className="report-page" style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex" }}>
       {/* Left: form */}
-      <div style={{ width: 440, flexShrink: 0, padding: 32, overflowY: "auto" }}>
+      <div className="report-form" style={{ width: 440, flexShrink: 0, padding: 32, overflowY: "auto" }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🚨</div>
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Report Emergency</h1>
@@ -248,6 +302,26 @@ export default function ReportEmergency() {
             />
           </div>
 
+          {/* Photo */}
+          <div className="form-group">
+            <label className="form-label">Photo (optional)</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleImagePick}
+              className="form-input"
+              style={{ padding: 8 }}
+            />
+            {imagePreview && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                <img src={imagePreview} alt="Selected" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={clearImage}>Remove</button>
+              </div>
+            )}
+            <div className="form-hint">PNG, JPG or WebP · max 5 MB</div>
+          </div>
+
           {/* Location */}
           <div className="form-group">
             <label className="form-label">Location *</label>
@@ -285,13 +359,14 @@ export default function ReportEmergency() {
       </div>
 
       {/* Right: map */}
-      <div style={{ flex: 1 }}>
-        <MapContainer center={DEFAULT_CENTER} zoom={13} style={{ height: "100vh", width: "100%" }}>
+      <div className="report-map" style={{ flex: 1 }}>
+        <MapContainer center={DEFAULT_CENTER} zoom={13} style={{ height: "100%", minHeight: "100vh", width: "100%" }}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors'
           />
           <LocationPicker onLocationChange={setMarkerPos} />
+          <FlyToMarker position={flyTarget} />
           {markerPos && <Marker position={markerPos} />}
         </MapContainer>
       </div>

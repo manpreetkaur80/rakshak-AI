@@ -1,129 +1,164 @@
 /**
- * Escalation service — checks P1/P2 incidents for delayed response
- * and creates alerts via cron
+ * Escalation service (runs every minute via cron).
+ *
+ *  1. Unassigned P1/P2 incidents: WARNING after `warningAfterMinutes`, then CRITICAL after
+ *     `criticalAfterMinutes`. (Previously an incident was escalated once, as "warning", and
+ *     could never reach "critical" because the query skipped already-escalated incidents.)
+ *  2. Assigned P1/P2 incidents whose responders have not reached the scene within
+ *     `onSceneAfterMinutes`: one "resource_delayed" alert.
+ *
+ * Thresholds are admin-editable (config.service).
  */
 
 const cron = require("node-cron");
 const Incident = require("../models/Incident");
 const { createAlert } = require("./alert.service");
-let io = null;
+const { getEscalationConfig, getConfig } = require("./config.service");
+const AnalyticsEvent = require("../models/AnalyticsEvent");
 
-const ESCALATION_CONFIG = {
-  P1: {
-    warningAfterMinutes: parseInt(process.env.ESCALATION_P1_WARNING) || 2,
-    criticalAfterMinutes: parseInt(process.env.ESCALATION_P1_CRITICAL) || 5,
-  },
-  P2: {
-    warningAfterMinutes: parseInt(process.env.ESCALATION_P2_WARNING) || 5,
-    criticalAfterMinutes: parseInt(process.env.ESCALATION_P2_CRITICAL) || 10,
-  },
-};
+let io = null;
 
 function setIO(socketIO) {
   io = socketIO;
 }
 
-function getConfig() {
-  return ESCALATION_CONFIG;
+const UNASSIGNED_STATUSES = ["REPORTED", "CLASSIFIED", "DUPLICATE_CANDIDATE"];
+const WAITING_FOR_ARRIVAL_STATUSES = ["ASSIGNED", "EN_ROUTE"];
+
+function broadcastAlert(alert, incident, extra = {}) {
+  if (!io) return;
+  io.emit("alert:created", {
+    id: alert._id,
+    publicId: alert.publicId,
+    type: alert.type,
+    severity: alert.severity,
+    title: alert.title,
+    message: alert.message,
+    incidentId: incident.publicId,
+    acknowledged: false,
+    ...extra,
+  });
 }
 
-function updateConfig(newConfig) {
-  Object.assign(ESCALATION_CONFIG, newConfig);
-}
+async function escalateUnassigned(now, priority, config) {
+  const warningThreshold = new Date(now.getTime() - config.warningAfterMinutes * 60000);
 
-async function checkEscalations() {
-  const now = new Date();
+  // Anything past the warning threshold that has not already been escalated to "critical"
+  const incidents = await Incident.find({
+    priority,
+    status: { $in: UNASSIGNED_STATUSES },
+    "escalation.level": { $ne: "critical" },
+    createdAt: { $lte: warningThreshold },
+  });
 
-  for (const [priority, config] of Object.entries(ESCALATION_CONFIG)) {
-    const warningThreshold = new Date(now.getTime() - config.warningAfterMinutes * 60000);
-    const criticalThreshold = new Date(now.getTime() - config.criticalAfterMinutes * 60000);
+  let count = 0;
+  for (const incident of incidents) {
+    const ageMinutes = (now - incident.createdAt) / 60000;
+    const targetLevel = ageMinutes >= config.criticalAfterMinutes ? "critical" : "warning";
+    if (incident.escalation.level === targetLevel) continue; // already at this level
 
-    // Find unassigned incidents past warning threshold
-    const unassignedIncidents = await Incident.find({
-      priority,
-      status: { $in: ["REPORTED", "CLASSIFIED"] },
-      "escalation.isEscalated": false,
-      createdAt: { $lte: warningThreshold },
-    }).populate("createdBy", "name");
+    const rounded = Math.round(ageMinutes);
+    incident.escalation.isEscalated = true;
+    incident.escalation.level = targetLevel;
+    incident.escalation.reason = `${priority} incident unassigned for ${rounded} minutes`;
+    incident.escalation.escalatedAt = now;
+    incident.timeline.push({
+      event: "escalated",
+      message: `Incident escalated to ${targetLevel} — unassigned for ${rounded} minutes`,
+      timestamp: now,
+      metadata: { escalationLevel: targetLevel, ageMinutes: rounded },
+    });
+    await incident.save();
 
-    for (const incident of unassignedIncidents) {
-      const ageMinutes = (now - incident.createdAt) / 60000;
-      let escalationLevel = null;
-      let alertSeverity = null;
-      let alertType = null;
+    const alert = await createAlert({
+      type: targetLevel === "critical" ? "escalation_critical" : "escalation_warning",
+      severity: targetLevel,
+      title: `${targetLevel.toUpperCase()} — ${priority} Incident Not Assigned`,
+      message: `${priority} incident ${incident.publicId} (${incident.type}) has not received a response after ${rounded} minutes.`,
+      incidentId: incident._id,
+      recipientRole: "operator",
+    });
+    await AnalyticsEvent.create({
+      eventType: "incident_escalated",
+      incidentId: incident._id,
+      metadata: { level: targetLevel, priority, ageMinutes: rounded },
+    }).catch(() => {});
 
-      if (ageMinutes >= config.criticalAfterMinutes) {
-        escalationLevel = "critical";
-        alertSeverity = "critical";
-        alertType = "escalation_critical";
-      } else if (ageMinutes >= config.warningAfterMinutes) {
-        escalationLevel = "warning";
-        alertSeverity = "warning";
-        alertType = "escalation_warning";
-      }
-
-      if (!escalationLevel) continue;
-
-      // Update incident escalation
-      await Incident.findByIdAndUpdate(incident._id, {
-        "escalation.isEscalated": true,
-        "escalation.level": escalationLevel,
-        "escalation.reason": `${priority} incident unassigned for ${Math.round(ageMinutes)} minutes`,
-        "escalation.escalatedAt": now,
-        $push: {
-          timeline: {
-            event: "escalated",
-            message: `Incident escalated to ${escalationLevel} — unassigned for ${Math.round(ageMinutes)} minutes`,
-            timestamp: now,
-            metadata: { escalationLevel, ageMinutes: Math.round(ageMinutes) },
-          },
-        },
+    broadcastAlert(alert, incident);
+    if (io) {
+      io.emit("incident:updated", {
+        publicId: incident.publicId,
+        escalation: { isEscalated: true, level: targetLevel },
+        updatedAt: now,
       });
-
-      // Create alert
-      const alert = await createAlert({
-        type: alertType,
-        severity: alertSeverity,
-        title: `${escalationLevel.toUpperCase()} — ${priority} Incident Not Assigned`,
-        message: `${priority} incident ${incident.publicId} (${incident.type}) has not received a response after ${Math.round(ageMinutes)} minutes.`,
-        incidentId: incident._id,
-        recipientRole: "operator",
-      });
-
-      // Emit socket event
-      if (io) {
-        io.emit("alert:created", {
-          id: alert._id,
-          publicId: alert.publicId,
-          type: alertType,
-          severity: alertSeverity,
-          title: alert.title,
-          message: alert.message,
-          incidentId: incident.publicId,
-          acknowledged: false,
-        });
-        io.emit("incident:updated", {
-          publicId: incident.publicId,
-          escalation: { isEscalated: true, level: escalationLevel },
-          updatedAt: now,
-        });
-      }
-
-      console.log(`Escalation: ${incident.publicId} → ${escalationLevel}`);
     }
+    count++;
+    console.log(`Escalation: ${incident.publicId} → ${targetLevel}`);
   }
+  return count;
+}
+
+async function flagDelayedResponses(now, priority, config) {
+  if (!config.onSceneAfterMinutes) return 0;
+  const threshold = new Date(now.getTime() - config.onSceneAfterMinutes * 60000);
+
+  const incidents = await Incident.find({
+    priority,
+    status: { $in: WAITING_FOR_ARRIVAL_STATUSES },
+    "escalation.delayAlerted": { $ne: true },
+    createdAt: { $lte: threshold },
+  });
+
+  let count = 0;
+  for (const incident of incidents) {
+    const ageMinutes = Math.round((now - incident.createdAt) / 60000);
+    incident.escalation.delayAlerted = true;
+    incident.timeline.push({
+      event: "response_delayed",
+      message: `Responders have not reached the scene after ${ageMinutes} minutes`,
+      timestamp: now,
+      metadata: { ageMinutes },
+    });
+    await incident.save();
+
+    const alert = await createAlert({
+      type: "resource_delayed",
+      severity: "warning",
+      title: `Responder Delay — ${priority} Incident`,
+      message: `${priority} incident ${incident.publicId} (${incident.type}) is still ${incident.status.replace("_", " ")} after ${ageMinutes} minutes.`,
+      incidentId: incident._id,
+      recipientRole: "operator",
+    });
+    broadcastAlert(alert, incident);
+    count++;
+  }
+  return count;
+}
+
+async function checkEscalations(now = new Date()) {
+  const cfg = getEscalationConfig();
+  const result = { escalated: 0, delayed: 0 };
+  for (const [priority, config] of Object.entries(cfg)) {
+    result.escalated += await escalateUnassigned(now, priority, config);
+    result.delayed += await flagDelayedResponses(now, priority, config);
+  }
+  return result;
 }
 
 function startEscalationCron() {
-  // Run every minute
+  let running = false;
   cron.schedule("* * * * *", async () => {
+    if (running) return; // never overlap runs
+    running = true;
     try {
       await checkEscalations();
     } catch (err) {
       console.error("Escalation cron error:", err.message);
+    } finally {
+      running = false;
     }
   });
   console.log("Escalation cron started");
 }
 
-module.exports = { startEscalationCron, checkEscalations, setIO, getConfig, updateConfig };
+module.exports = { startEscalationCron, checkEscalations, setIO, getConfig };

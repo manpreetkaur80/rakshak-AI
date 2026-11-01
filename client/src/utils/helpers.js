@@ -42,6 +42,40 @@ export const RESOURCE_ICONS = {
   hospital: "🏥",
 };
 
+// Where a report came from (SourceReport.sourceType)
+export const SOURCE_LABELS = {
+  web: "Citizen app",
+  call: "Emergency call",
+  sensor: "IoT sensor",
+  hospital: "Hospital feed",
+  govt: "Govt alert",
+  field_team: "Field team",
+};
+
+export const SOURCE_ICONS = {
+  web: "📱",
+  call: "📞",
+  sensor: "📡",
+  hospital: "🏥",
+  govt: "🏛️",
+  field_team: "🧑‍🚒",
+};
+
+export const sourceLabel = (t) => SOURCE_LABELS[t] || (t ? String(t).replace(/_/g, " ") : "Citizen app");
+export const sourceIcon = (t) => SOURCE_ICONS[t] || "📋";
+
+// Alert type → icon (Alerts page falls back to the severity icon when a type is unknown)
+export const ALERT_TYPE_ICONS = {
+  resource_shortage: "🚧",
+  critical_incident: "🚨",
+  new_incident: "🆕",
+  duplicate_candidate: "🧩",
+  resource_delayed: "⏱️",
+  escalation_warning: "⚠️",
+  escalation_critical: "🚨",
+  sensor_alert: "📡",
+};
+
 export function formatTimeAgo(date) {
   if (!date) return "—";
   const now = new Date();

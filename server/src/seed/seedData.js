@@ -79,6 +79,7 @@ async function seedResources() {
   const count = await Resource.countDocuments();
   if (count > 0) {
     console.log(`Resources already exist (${count}), skipping resource seed`);
+    await linkResponders();
     return;
   }
   const docs = RESOURCES.map((r) => ({
@@ -95,8 +96,24 @@ async function seedResources() {
     metadata: { isDemo: true },
   }));
 
-  await Resource.insertMany(docs, { ordered: false }).catch(() => {});
+  await Resource.insertMany(docs, { ordered: false });
   console.log(`✓ Seeded ${docs.length} resources`);
+  await linkResponders();
+}
+
+// Link demo responder accounts to their units so assigned incidents show up on their Responder page
+const RESPONDER_UNITS = {
+  "responder1@ps9demo.com": ["FT-01", "FT-02", "AMB-01", "AMB-02", "PU-01", "RST-01"],
+  "responder2@ps9demo.com": ["FT-03", "FT-04", "FT-05", "AMB-03", "AMB-04", "AMB-05", "PU-02", "PU-03", "RST-02", "RST-03"],
+};
+
+async function linkResponders() {
+  for (const [email, units] of Object.entries(RESPONDER_UNITS)) {
+    const user = await User.findOne({ email });
+    if (!user) continue;
+    const r = await Resource.updateMany({ publicId: { $in: units }, responderUser: null }, { responderUser: user._id });
+    if (r.modifiedCount) console.log(`✓ Linked ${r.modifiedCount} units to ${email}`);
+  }
 }
 
 async function runFullSeed() {
@@ -115,9 +132,7 @@ async function runFullSeed() {
     let user = await User.findOne({ email: u.email });
     if (!user) {
       const passwordHash = await bcrypt.hash(u.password, 12);
-      const count = await User.countDocuments();
       user = await User.create({
-        publicId: `USR-${String(10001 + count).padStart(5, "0")}`,
         name: u.name,
         email: u.email,
         passwordHash,

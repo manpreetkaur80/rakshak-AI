@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { incidentAPI } from "../services/api";
-import { getSocket } from "../services/socket";
+import { getSocket, connectSocket } from "../services/socket";
 import SeverityBadge from "../components/common/SeverityBadge";
 import StatusBadge from "../components/common/StatusBadge";
 import { formatDateTime, TYPE_ICONS, getErrorMessage } from "../utils/helpers";
@@ -32,25 +32,38 @@ export default function TrackIncident() {
   };
 
   useEffect(() => {
+    connectSocket();
     if (incidentId) searchIncident(incidentId);
   }, []);
 
   useEffect(() => {
     if (!incident) return;
     const socket = getSocket();
-    socket.on("incident:updated", (data) => {
-      if (data.publicId === incident.publicId) setIncident((prev) => ({ ...prev, ...data }));
-    });
-    socket.on("incident:resolved", (data) => {
-      if (data.incidentId === incident.publicId) setIncident((prev) => ({ ...prev, status: "RESOLVED" }));
-    });
-    return () => { socket.off("incident:updated"); socket.off("incident:resolved"); };
+    // Anonymous sockets only receive minimal public events: {publicId, status, updatedAt}
+    connectSocket();
+    const onUpdated = (data) => {
+      if (data.publicId !== incident.publicId) return;
+      setIncident((prev) => ({
+        ...prev,
+        ...(data.status ? { status: data.status } : {}),
+        ...(data.updatedAt ? { updatedAt: data.updatedAt } : {}),
+      }));
+    };
+    const onResolved = (data) => {
+      const pid = data.publicId || data.incidentId;
+      if (pid === incident.publicId) setIncident((prev) => ({ ...prev, status: "RESOLVED" }));
+    };
+    socket.on("incident:updated", onUpdated);
+    socket.on("incident:resolved", onResolved);
+    return () => { socket.off("incident:updated", onUpdated); socket.off("incident:resolved", onResolved); };
   }, [incident?.publicId]);
 
-  const currentStepIndex = STATUS_STEPS.indexOf(incident?.status);
+  // DUPLICATE_CANDIDATE is an internal review state; to the reporter it is still "classified".
+  const publicStatus = incident?.status === "DUPLICATE_CANDIDATE" ? "CLASSIFIED" : incident?.status === "CLOSED" ? "RESOLVED" : incident?.status;
+  const currentStepIndex = STATUS_STEPS.indexOf(publicStatus);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)", padding: 32 }}>
+    <div className="track-page" style={{ minHeight: "100vh", background: "var(--bg-primary)", padding: 32 }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         {/* Brand */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -91,17 +104,21 @@ export default function TrackIncident() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <span style={{ fontSize: 20 }}>{TYPE_ICONS[incident.type]}</span>
                     <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--accent)" }}>{incident.publicId}</span>
-                    {incident.isDemo && <span className="tag" style={{ fontSize: 10 }}>DEMO</span>}
-                  </div>
+                                      </div>
                   <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{incident.title}</h2>
                   <p style={{ color: "var(--text-muted)", fontSize: 13 }}>{incident.address}</p>
                 </div>
                 <div style={{ textAlign: "right", display: "flex", flexDirection: "column", gap: 6 }}>
-                  <SeverityBadge severity={incident.severity} />
-                  <span className={`badge badge-${(incident.priority || "P3").toLowerCase()}`}>{incident.priority}</span>
+                  {incident.severity && <SeverityBadge severity={incident.severity} />}
+                  {incident.priority && <span className={`badge badge-${incident.priority.toLowerCase()}`}>{incident.priority}</span>}
                 </div>
               </div>
               <StatusBadge status={incident.status} />
+              {incident.status === "MERGED" && (
+                <p style={{ marginTop: 10, fontSize: 12, color: "var(--text-muted)" }}>
+                  This report was combined with another report of the same emergency. Responders are working on it.
+                </p>
+              )}
             </div>
 
             {/* Progress tracker */}
@@ -158,7 +175,7 @@ export default function TrackIncident() {
             {/* Timeline */}
             <div className="card">
               <div className="card-header"><span className="card-title">Timeline</span></div>
-              {incident.timeline?.length === 0 ? (
+              {!incident.timeline || incident.timeline.length === 0 ? (
                 <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No events recorded yet</p>
               ) : (
                 <div className="timeline">

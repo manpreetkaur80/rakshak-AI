@@ -10,12 +10,19 @@ const resourceRoutes = require("./routes/resource.routes");
 const alertRoutes = require("./routes/alert.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const demoRoutes = require("./routes/demo.routes");
+const adminRoutes = require("./routes/admin.routes");
+const notificationRoutes = require("./routes/notification.routes");
+const ingestRoutes = require("./routes/ingest.routes");
+const { router: uploadRoutes, UPLOAD_DIR } = require("./routes/upload.routes");
+
 
 const app = express();
+app.set("trust proxy", 1); // correct client IPs for rate limiting behind a proxy/load balancer
 
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginEmbedderPolicy: false, // Allow Leaflet map tiles
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // uploaded images are shown by the separately-hosted client
   contentSecurityPolicy: false,
 }));
 
@@ -29,13 +36,16 @@ app.use(cors({
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: process.env.NODE_ENV === "test" ? 10000 : 30,
+  skip: (req) => req.path === "/me", // session checks on page load must not count against the login limit
   message: { success: false, message: "Too many requests", code: "RATE_LIMIT" },
 });
 
+// Only limits report SUBMISSION (spam protection) — dashboards and trackers poll GET endpoints freely
 const incidentLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 50,
+  max: process.env.NODE_ENV === "test" ? 10000 : 50,
+  skip: (req) => req.method !== "POST" || req.path !== "/",
   message: { success: false, message: "Too many incident reports", code: "RATE_LIMIT" },
 });
 
@@ -65,6 +75,11 @@ app.use("/api/v1/resources", resourceRoutes);
 app.use("/api/v1/alerts", alertRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/demo", demoRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/ingest", ingestRoutes);
+app.use("/api/v1/uploads", uploadRoutes);
+app.use("/uploads", express.static(UPLOAD_DIR, { index: false, setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff") }));
 
 // Legacy redirect
 app.get("/api/incidents", (req, res) => res.redirect("/api/v1/incidents"));

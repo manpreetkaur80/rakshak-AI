@@ -34,13 +34,15 @@ export default function Alerts() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("alert:created", (data) => {
+    const onCreated = (data) => {
       setAlerts((prev) => [{ ...data, isAcknowledged: false, createdAt: new Date() }, ...prev]);
-    });
-    socket.on("alert:updated", (data) => {
+    };
+    const onUpdated = (data) => {
       setAlerts((prev) => prev.map((a) => (a._id === data.id || a.publicId === data.publicId) ? { ...a, isAcknowledged: data.acknowledged } : a));
-    });
-    return () => { socket.off("alert:created"); socket.off("alert:updated"); };
+    };
+    socket.on("alert:created", onCreated);
+    socket.on("alert:updated", onUpdated);
+    return () => { socket.off("alert:created", onCreated); socket.off("alert:updated", onUpdated); };
   }, []);
 
   const handleAcknowledge = async (alertId) => {
@@ -112,9 +114,9 @@ export default function Alerts() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span>{style.icon}</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: style.label }}>{alert.title}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: style.label }}>{alert.title || (alert.type ? alert.type.replace(/_/g, " ") : "Alert")}</span>
                       <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--bg-primary)", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                        {alert.severity}
+                        {alert.severity || "info"}
                       </span>
                       {alert.isAcknowledged && (
                         <span style={{ fontSize: 10, color: "var(--success)" }}>✅ Acknowledged</span>

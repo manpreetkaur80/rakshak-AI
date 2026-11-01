@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { authAPI } from "../services/api";
-import { connectSocket, disconnectSocket } from "../services/socket";
+import { connectSocket, reconnectSocket } from "../services/socket";
 
 const AuthContext = createContext(null);
 
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("ps9_token", token);
     localStorage.setItem("ps9_user", JSON.stringify(userData));
     setUser(userData);
-    connectSocket();
+    reconnectSocket();
     return userData;
   };
 
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("ps9_token");
     localStorage.removeItem("ps9_user");
     setUser(null);
-    disconnectSocket();
+    reconnectSocket(); // reconnect anonymously so public pages keep working
   };
 
   const register = async (data) => {
@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("ps9_token", token);
     localStorage.setItem("ps9_user", JSON.stringify(userData));
     setUser(userData);
-    connectSocket();
+    reconnectSocket();
     return userData;
   };
 

@@ -609,8 +609,86 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .app-sidebar { display: none; }
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .page-content { padding: 16px; }
+.mobile-topbar, .sidebar-overlay { display: none; }
+
+/* Tablets and below: sidebar becomes a slide-in drawer, multi-column layouts stack */
+@media (max-width: 900px) {
+  html, body { overflow-x: hidden; }
+  .app-layout { flex-direction: column; height: 100dvh; }
+
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    height: 52px; padding: 0 12px; position: relative; z-index: 30;
+    background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+  }
+  .mobile-brand { flex: 1; font-weight: 800; font-size: 16px; color: var(--text-primary); }
+  .mobile-menu-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+
+  .app-sidebar {
+    display: flex !important; position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+    width: min(280px, 82vw); transform: translateX(-100%); transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+  .app-sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.6); }
+  .sidebar-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 40; }
+  .sidebar-link { padding: 12px 14px; }
+
+  .app-main { isolation: isolate; } /* keep Leaflet's high z-index panes below the drawer */
+  table td:first-child, table th:first-child { white-space: nowrap; }
+  .page-content { padding: 14px; }
+  .page-title { font-size: 19px; }
+  .page-header { margin-bottom: 16px; }
+
+  /* Inline-styled multi-column grids → single column */
+  [style*="280px 1fr 260px"], [style*="320px 1fr"], [style*="1fr 340px"], [style*="1fr 280px"],
+  [style*="grid-template-columns: 1fr 1fr;"], [style*="1.2fr 1.4fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Fixed-height panels: let them grow with content (maps keep a usable height) */
+  [style*="calc(100vh - 260px)"], [style*="calc(100vh - 180px)"] { height: auto !important; min-height: 0 !important; }
+  [style*="calc(100vh - 260px)"] > .card, [style*="calc(100vh - 180px)"] > .card { max-height: 420px; }
+  .leaflet-container { min-height: 300px; }
+  [style*="1fr 280px"] { overflow: visible !important; }
+
+  /* Report page: form above map */
+  .report-page { flex-direction: column; }
+  .report-form { width: 100% !important; padding: 20px 16px !important; }
+  .report-map { height: 60vh; min-height: 320px; flex: none !important; }
+  .report-map .leaflet-container { min-height: 320px !important; height: 60vh !important; }
+  .track-page { padding: 16px !important; }
+}
+
+/* Phones */
+@media (max-width: 600px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-value { font-size: 24px; }
+  .card { padding: 14px; }
+  [style*="repeat(4, 1fr)"] { grid-template-columns: repeat(2, 1fr) !important; }
+  [style*="repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+
+  /* 16px inputs stop iOS Safari zooming in on focus; bigger tap targets */
+  input, select, textarea, .form-input { font-size: 16px !important; }
+  .btn { min-height: 40px; }
+  .btn-sm { min-height: 36px; }
+
+  .page-header > div:last-child { width: 100%; flex-wrap: wrap; }
+  .table-wrapper { margin: 0 -14px; padding: 0 14px; }
+  table { min-width: 560px; }
+  [style*="min-width: 280px"] { min-width: 0 !important; }
+}
+
+/* ── Moving units on the live map ─────────────────────────────────────────── */
+.unit-marker {
+  transition: transform 1s linear; /* position updates arrive every second */
+}
+.leaflet-zoom-anim .unit-marker { transition: none; } /* no lag while zooming */
+.unit-moving {
+  animation: unit-pulse 1.2s ease-out infinite;
+}
+@keyframes unit-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.8), 0 2px 6px rgba(0,0,0,0.5); }
+  100% { box-shadow: 0 0 0 16px rgba(56, 189, 248, 0), 0 2px 6px rgba(0,0,0,0.5); }
 }

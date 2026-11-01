@@ -21,16 +21,18 @@ export default function Dashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [incRes, resRes, altRes, ovRes] = await Promise.all([
+      // allSettled: some roles (e.g. hospital) are not permitted to read every endpoint.
+      const [incRes, resRes, altRes, ovRes] = await Promise.allSettled([
         incidentAPI.list({ limit: 20 }),
         resourceAPI.list(),
         alertAPI.list({ acknowledged: false }),
         analyticsAPI.overview(),
       ]);
-      setIncidents(incRes.data.data || []);
-      setResources(resRes.data.data || []);
-      setAlerts((altRes.data.data || []).slice(0, 10));
-      setOverview(ovRes.data.data || {});
+      const val = (r) => (r.status === "fulfilled" ? r.value.data.data : null);
+      setIncidents(val(incRes) || []);
+      setResources(val(resRes) || []);
+      setAlerts((val(altRes) || []).slice(0, 10));
+      setOverview(val(ovRes) || {});
     } catch (err) {
       console.error("Dashboard load error:", getErrorMessage(err));
     } finally {
@@ -49,20 +51,20 @@ export default function Dashboard() {
     const addLog = (msg) =>
       setLiveLog((prev) => [{ msg, ts: new Date() }, ...prev].slice(0, 8));
 
-    socket.on("incident:created", (data) => {
-      setIncidents((prev) => [data, ...prev.slice(0, 19)]);
+    const onCreated = (data) => {
+      setIncidents((prev) => (prev.some((i) => i.publicId === data.publicId) ? prev : [data, ...prev.slice(0, 19)]));
       setOverview((prev) => prev ? { ...prev, activeIncidents: (prev.activeIncidents || 0) + 1 } : prev);
       addLog(`New incident: ${data.publicId} — ${data.type} (${data.severity})`);
-    });
+    };
 
-    socket.on("incident:updated", (data) => {
+    const onUpdated = (data) => {
       setIncidents((prev) =>
         prev.map((inc) => inc.publicId === data.publicId ? { ...inc, ...data } : inc)
       );
       addLog(`Updated: ${data.publicId} → ${data.status || "updated"}`);
-    });
+    };
 
-    socket.on("incident:resolved", (data) => {
+    const onResolved = (data) => {
       setIncidents((prev) =>
         prev.map((inc) => inc.publicId === data.incidentId ? { ...inc, status: "RESOLVED" } : inc)
       );
@@ -72,31 +74,38 @@ export default function Dashboard() {
         resolvedToday: (prev.resolvedToday || 0) + 1,
       } : prev);
       addLog(`Resolved: ${data.incidentId}`);
-    });
+    };
 
-    socket.on("resource:updated", (data) => {
+    const onResource = (data) => {
       setResources((prev) =>
         prev.map((r) => r.publicId === data.resourceId ? { ...r, status: data.status } : r)
       );
-    });
+    };
 
-    socket.on("alert:created", (data) => {
+    const onAlert = (data) => {
       setAlerts((prev) => [data, ...prev].slice(0, 10));
       setOverview((prev) => prev ? { ...prev, pendingAlerts: (prev.pendingAlerts || 0) + 1 } : prev);
       addLog(`🚨 Alert: ${data.title || data.message}`);
-    });
+    };
 
-    socket.on("demo:step", (data) => {
+    const onDemo = (data) => {
       addLog(`[DEMO] ${data.message}`);
-    });
+    };
+
+    socket.on("incident:created", onCreated);
+    socket.on("incident:updated", onUpdated);
+    socket.on("incident:resolved", onResolved);
+    socket.on("resource:updated", onResource);
+    socket.on("alert:created", onAlert);
+    socket.on("demo:step", onDemo);
 
     return () => {
-      socket.off("incident:created");
-      socket.off("incident:updated");
-      socket.off("incident:resolved");
-      socket.off("resource:updated");
-      socket.off("alert:created");
-      socket.off("demo:step");
+      socket.off("incident:created", onCreated);
+      socket.off("incident:updated", onUpdated);
+      socket.off("incident:resolved", onResolved);
+      socket.off("resource:updated", onResource);
+      socket.off("alert:created", onAlert);
+      socket.off("demo:step", onDemo);
     };
   }, []);
 

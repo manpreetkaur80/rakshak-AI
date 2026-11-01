@@ -2,8 +2,9 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   LayoutDashboard, AlertTriangle, Truck, Bell, BarChart3,
-  Map, LogOut, Shield, User, Activity, ClipboardList
+  Map, LogOut, Shield, User, Activity, ClipboardList, Settings
 } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 const NAV_ITEMS = {
   operator: [
@@ -35,21 +36,25 @@ const NAV_ITEMS = {
   ],
 };
 
-export default function Sidebar({ alertCount = 0 }) {
+export default function Sidebar({ alertCount = 0, isMobile = false, open = false, onNavigate }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const items = NAV_ITEMS[user?.role] || NAV_ITEMS.citizen;
 
   const handleLogout = () => {
+    if (onNavigate) onNavigate();
     logout();
     navigate("/login");
   };
 
   return (
-    <aside className="app-sidebar">
-      <div className="sidebar-brand">
-        <div className="sidebar-brand-name">🛡️ RakshakAI</div>
-        <div className="sidebar-brand-sub">Emergency Response Platform</div>
+    <aside className={`app-sidebar${open ? " open" : ""}`}>
+      <div className="sidebar-brand" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <div>
+          <div className="sidebar-brand-name">🛡️ RakshakAI</div>
+          <div className="sidebar-brand-sub">Emergency Response Platform</div>
+        </div>
+        {!isMobile && <NotificationBell />}
       </div>
 
       <nav className="sidebar-nav">
@@ -67,6 +72,15 @@ export default function Sidebar({ alertCount = 0 }) {
             )}
           </NavLink>
         ))}
+
+        <div className="sidebar-section-label" style={{ marginTop: 12 }}>Account</div>
+        <NavLink
+          to="/settings/notifications"
+          className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
+        >
+          <Settings size={16} />
+          Notification settings
+        </NavLink>
       </nav>
 
       <div className="sidebar-footer">

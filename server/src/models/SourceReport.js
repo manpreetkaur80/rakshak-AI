@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 
 const sourceReportSchema = new mongoose.Schema(
   {
@@ -12,10 +13,23 @@ const sourceReportSchema = new mongoose.Schema(
       ref: "Incident",
       default: null,
     },
+    // null for anonymous reports (citizens are not required to sign up to report an emergency)
     reportedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
+    },
+    // Which feed this report came from, and the feed's own reference (sensor ID, call ID, hospital ID ...)
+    sourceType: {
+      type: String,
+      enum: ["web", "call", "sensor", "hospital", "govt", "field_team"],
+      default: "web",
+    },
+    sourceRef: { type: String, default: null },
+    reporterType: {
+      type: String,
+      enum: ["anonymous", "citizen", "staff"],
+      default: "anonymous",
     },
     description: {
       type: String,
@@ -60,13 +74,10 @@ sourceReportSchema.index({ publicId: 1 }, { unique: true });
 sourceReportSchema.index({ incidentId: 1 });
 sourceReportSchema.index({ createdAt: -1 });
 sourceReportSchema.index({ reportedBy: 1 });
+sourceReportSchema.index({ sourceType: 1, createdAt: -1 });
+sourceReportSchema.index({ sourceType: 1, sourceRef: 1 });
 
-sourceReportSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("SourceReport").countDocuments();
-    this.publicId = `REP-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+sourceReportSchema.plugin(publicIdPlugin, { modelName: "SourceReport", prefix: "REP" });
 
 module.exports = mongoose.model("SourceReport", sourceReportSchema);

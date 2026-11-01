@@ -23,7 +23,7 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             className={`alert-strip ${t.type}`}
-            style={{ minWidth: 280, maxWidth: 400, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}
+            style={{ minWidth: "min(280px, calc(100vw - 40px))", maxWidth: "calc(100vw - 40px)", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}
             onClick={() => removeToast(t.id)}
           >
             {t.type === "error" ? "❌" : t.type === "success" ? "✅" : t.type === "warning" ? "⚠️" : "ℹ️"}

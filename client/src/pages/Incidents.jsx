@@ -46,14 +46,16 @@ export default function Incidents() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("incident:created", (data) => {
-      setIncidents((prev) => [data, ...prev]);
+    const onCreated = (data) => {
+      setIncidents((prev) => (prev.some((i) => i.publicId === data.publicId) ? prev : [data, ...prev]));
       setTotal((t) => t + 1);
-    });
-    socket.on("incident:updated", (data) => {
+    };
+    const onUpdated = (data) => {
       setIncidents((prev) => prev.map((inc) => inc.publicId === data.publicId ? { ...inc, ...data } : inc));
-    });
-    return () => { socket.off("incident:created"); socket.off("incident:updated"); };
+    };
+    socket.on("incident:created", onCreated);
+    socket.on("incident:updated", onUpdated);
+    return () => { socket.off("incident:created", onCreated); socket.off("incident:updated", onUpdated); };
   }, []);
 
   const handleFilterChange = (key, value) => {

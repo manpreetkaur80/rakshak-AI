@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 
 const timelineEventSchema = new mongoose.Schema(
   {
@@ -197,6 +198,15 @@ const incidentSchema = new mongoose.Schema(
       type: [timelineEventSchema],
       default: [],
     },
+    // Fake/prank screening (staff only – never exposed in the public tracking view)
+    credibility: {
+      score: { type: Number, min: 0, max: 1, default: null },
+      level: { type: String, enum: ["high", "medium", "low", null], default: null },
+      flags: { type: [String], default: [] },
+      assessedAt: { type: Date, default: null },
+    },
+    // Set when the dispatch was triggered automatically (operators can recall it)
+    autoDispatched: { type: Boolean, default: false },
     escalation: {
       isEscalated: { type: Boolean, default: false },
       level: {
@@ -205,6 +215,8 @@ const incidentSchema = new mongoose.Schema(
         default: null,
       },
       reason: { type: String, default: null },
+      // set once a "responder delayed" alert has been raised for an assigned-but-not-arrived incident
+      delayAlerted: { type: Boolean, default: false },
       escalatedAt: { type: Date, default: null },
       escalatedBy: {
         type: mongoose.Schema.Types.ObjectId,
@@ -220,6 +232,12 @@ const incidentSchema = new mongoose.Schema(
         default: null,
       },
       resolutionNote: { type: String, default: null },
+    },
+    // Set when this incident was merged into another one (lets clients redirect, and allows "unmerge")
+    mergedInto: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Incident",
+      default: null,
     },
     isDemo: {
       type: Boolean,
@@ -241,16 +259,12 @@ incidentSchema.index({ status: 1 });
 incidentSchema.index({ severity: 1 });
 incidentSchema.index({ priority: 1 });
 incidentSchema.index({ type: 1 });
+incidentSchema.index({ assignedResponder: 1 });
 incidentSchema.index({ createdAt: -1 });
 incidentSchema.index({ status: 1, createdAt: -1 });
 
 // Auto-generate publicId
-incidentSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("Incident").countDocuments();
-    this.publicId = `INC-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+incidentSchema.plugin(publicIdPlugin, { modelName: "Incident", prefix: "INC" });
 
 module.exports = mongoose.model("Incident", incidentSchema);

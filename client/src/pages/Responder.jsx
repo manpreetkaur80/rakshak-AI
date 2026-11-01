@@ -23,14 +23,13 @@ export default function Responder() {
   const [resolveNote, setResolveNote] = useState("");
 
   const loadIncidents = async () => {
-    setLoading(true);
     try {
       const res = await incidentAPI.list({ limit: 50 });
       const activeAssigned = (res.data.data || []).filter(
         (i) => !["RESOLVED", "CLOSED", "MERGED"].includes(i.status)
       );
       setIncidents(activeAssigned);
-      if (activeAssigned.length > 0 && !selected) setSelected(activeAssigned[0]);
+      setSelected((prev) => prev || activeAssigned[0] || null);
     } catch (err) {
       addToast(getErrorMessage(err), "error");
     } finally {
@@ -49,16 +48,18 @@ export default function Responder() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("incident:updated", (data) => {
+    const onUpdated = (data) => {
       setIncidents((prev) => prev.map((i) => i.publicId === data.publicId ? { ...i, ...data } : i));
-      if (selected?.publicId === data.publicId) setSelected((prev) => ({ ...prev, ...data }));
-    });
-    socket.on("incident:assigned", (data) => {
+      setSelected((prev) => (prev && prev.publicId === data.publicId ? { ...prev, ...data } : prev));
+    };
+    const onAssigned = (data) => {
       loadIncidents();
       addToast(`New assignment: ${data.incidentId}`, "info");
-    });
-    return () => { socket.off("incident:updated"); socket.off("incident:assigned"); };
-  }, [selected?.publicId]);
+    };
+    socket.on("incident:updated", onUpdated);
+    socket.on("incident:assigned", onAssigned);
+    return () => { socket.off("incident:updated", onUpdated); socket.off("incident:assigned", onAssigned); };
+  }, []);
 
   const doAction = async (action, fn, msg) => {
     setActionLoading(action);
@@ -77,8 +78,15 @@ export default function Responder() {
   const handleStatusChange = (status) =>
     doAction(status, () => incidentAPI.updateStatus(selected.publicId, { status, note: `Responder status: ${status}` }), `Status → ${status}`);
 
+  const handleAccept = () =>
+    doAction("accept", () => incidentAPI.accept(selected.publicId), "Assignment accepted");
+
   const handleResolve = () =>
     doAction("resolve", () => incidentAPI.resolve(selected.publicId, { note: resolveNote || "Resolved by responder" }), "Incident resolved");
+
+  // An assignment counts as accepted once any assigned resource has moved past "assigned".
+  const hasAssignments = (selected?.assignedResources || []).length > 0;
+  const accepted = (selected?.assignedResources || []).some((ar) => ar.status && ar.status !== "assigned");
 
   return (
     <AppLayout>
@@ -157,7 +165,16 @@ export default function Responder() {
 
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {selected.status === "ASSIGNED" && (
+                  {selected.status === "ASSIGNED" && !accepted && (
+                    <button
+                      className="btn btn-warning"
+                      onClick={handleAccept}
+                      disabled={!!actionLoading}
+                    >
+                      <CheckCircle size={14} /> {actionLoading === "accept" ? "Accepting..." : "Accept assignment"}
+                    </button>
+                  )}
+                  {selected.status === "ASSIGNED" && (accepted || !hasAssignments) && (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleStatusChange("EN_ROUTE")}

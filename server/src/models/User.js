@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
@@ -32,6 +33,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["citizen", "responder", "operator", "admin", "hospital"],
       default: "citizen",
+    },
+    notificationPrefs: {
+      email: { type: Boolean, default: true },
+      sms: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }, // live in-app / desktop pop-ups
     },
     isActive: {
       type: Boolean,
@@ -67,12 +73,7 @@ userSchema.methods.toJSON = function () {
 };
 
 // Auto-generate publicId before validation
-userSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("User").countDocuments();
-    this.publicId = `USR-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+userSchema.plugin(publicIdPlugin, { modelName: "User", prefix: "USR" });
 
 module.exports = mongoose.model("User", userSchema);

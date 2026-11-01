@@ -15,6 +15,7 @@ import Alerts from "./pages/Alerts";
 import Analytics from "./pages/Analytics";
 import Responder from "./pages/Responder";
 import Admin from "./pages/Admin";
+import NotificationSettings from "./pages/NotificationSettings";
 
 function App() {
   return (
@@ -28,11 +29,8 @@ function App() {
             <Route path="/track" element={<TrackIncident />} />
 
             {/* Citizen */}
-            <Route path="/report" element={
-              <ProtectedRoute roles={["citizen", "operator", "admin", "responder", "hospital"]}>
-                <ReportEmergency />
-              </ProtectedRoute>
-            } />
+            {/* Public: anonymous reporting is supported by the backend (PRD: "Anonymous/demo reporting") */}
+            <Route path="/report" element={<ReportEmergency />} />
 
             {/* Operator / Admin */}
             <Route path="/dashboard" element={
@@ -46,7 +44,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/incidents/:id" element={
-              <ProtectedRoute roles={["operator", "admin", "responder", "citizen"]}>
+              <ProtectedRoute roles={["operator", "admin", "responder"]}>
                 <IncidentDetails />
               </ProtectedRoute>
             } />
@@ -70,6 +68,13 @@ function App() {
             <Route path="/responder" element={
               <ProtectedRoute roles={["responder", "operator", "admin"]}>
                 <Responder />
+              </ProtectedRoute>
+            } />
+
+            {/* Any logged-in user */}
+            <Route path="/settings/notifications" element={
+              <ProtectedRoute>
+                <NotificationSettings />
               </ProtectedRoute>
             } />
 

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 
 const alertSchema = new mongoose.Schema(
   {
@@ -18,6 +19,7 @@ const alertSchema = new mongoose.Schema(
         "escalation_warning",
         "escalation_critical",
         "incident_resolved",
+        "resource_shortage",
         "system",
       ],
       required: true,
@@ -86,12 +88,7 @@ alertSchema.index({ isAcknowledged: 1 });
 alertSchema.index({ createdAt: -1 });
 alertSchema.index({ recipientUser: 1 });
 
-alertSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("Alert").countDocuments();
-    this.publicId = `ALT-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+alertSchema.plugin(publicIdPlugin, { modelName: "Alert", prefix: "ALT" });
 
 module.exports = mongoose.model("Alert", alertSchema);

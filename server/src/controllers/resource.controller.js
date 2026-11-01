@@ -1,5 +1,8 @@
 const Resource = require("../models/Resource");
-const { getRecommendations } = require("../services/resource.service");
+const { getRecommendations, missingTypes } = require("../services/resource.service");
+const Alert = require("../models/Alert");
+const AnalyticsEvent = require("../models/AnalyticsEvent");
+const { createAlert } = require("../services/alert.service");
 
 let io = null;
 function setIO(socketIO) { io = socketIO; }
@@ -57,6 +60,10 @@ const updateResourceStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Resource not found", code: "RESOURCE_NOT_FOUND" });
     }
 
+    if (req.user.role === "responder" && String(resource.responderUser) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "You can only update your own unit", code: "FORBIDDEN" });
+    }
+
     resource.status = status;
     resource.availability.isAvailable = status === "available";
     resource.availability.lastUpdated = new Date();
@@ -82,6 +89,18 @@ const getRecommendationsForIncident = async (req, res, next) => {
 
     const recommendations = await getRecommendations(incident);
 
+    // Resource shortage: the response package needs a unit type that nobody has available
+    const missing = ["RESOLVED", "CLOSED", "MERGED"].includes(incident.status) ? [] : missingTypes(incident, recommendations);
+    const typeLabel = (t) => t.replace("_", " ");
+    for (const t of missing) {
+      const message = `No available ${typeLabel(t)} unit for ${incident.publicId} (${incident.type}, ${incident.priority}).`;
+      const already = await Alert.exists({ type: "resource_shortage", incidentId: incident._id, message, isAcknowledged: false });
+      if (already) continue;
+      const alert = await createAlert({ type: "resource_shortage", severity: incident.priority === "P1" ? "critical" : "warning", title: `Resource shortage — ${typeLabel(t)}`, message, incidentId: incident._id });
+      await AnalyticsEvent.create({ eventType: "resource_shortage", incidentId: incident._id, metadata: { resourceType: t, priority: incident.priority } });
+      if (io) io.emit("alert:created", { id: alert._id, publicId: alert.publicId, type: alert.type, severity: alert.severity, title: alert.title, message: alert.message, incidentId: incident.publicId, acknowledged: false });
+    }
+
     const formatted = recommendations.map((r) => ({
       resourceId: r.resource.publicId,
       _id: r.resource._id,
@@ -93,9 +112,13 @@ const getRecommendationsForIncident = async (req, res, next) => {
       etaMinutes: r.etaMinutes,
       status: r.resource.status,
       location: r.resource.location,
+      capabilityScore: r.capabilityScore,
+      distanceScore: r.distanceScore,
+      role: r.role,
+      reason: r.reason,
     }));
 
-    res.json({ success: true, data: formatted });
+    res.json({ success: true, data: formatted, meta: { missing } });
   } catch (err) {
     next(err);
   }

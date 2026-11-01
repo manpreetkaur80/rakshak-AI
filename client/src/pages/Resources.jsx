@@ -46,10 +46,11 @@ export default function Resources() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("resource:updated", (data) => {
+    const onUpdated = (data) => {
       setResources((prev) => prev.map((r) => r.publicId === data.resourceId ? { ...r, status: data.status } : r));
-    });
-    return () => socket.off("resource:updated");
+    };
+    socket.on("resource:updated", onUpdated);
+    return () => socket.off("resource:updated", onUpdated);
   }, []);
 
   const byType = TYPES.slice(1).map((t) => ({

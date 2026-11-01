@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publicIdPlugin } = require("../utils/publicId");
 
 const resourceSchema = new mongoose.Schema(
   {
@@ -50,6 +51,12 @@ const resourceSchema = new mongoose.Schema(
       phone: { type: String, default: null },
       radioChannel: { type: String, default: null },
     },
+    // The responder user who operates this unit; used to show assigned incidents to that responder
+    responderUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     currentIncident: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Incident",
@@ -74,15 +81,11 @@ const resourceSchema = new mongoose.Schema(
 resourceSchema.index({ location: "2dsphere" });
 resourceSchema.index({ publicId: 1 }, { unique: true });
 resourceSchema.index({ type: 1 });
+resourceSchema.index({ responderUser: 1 });
 resourceSchema.index({ status: 1 });
 resourceSchema.index({ type: 1, status: 1 });
 
-resourceSchema.pre("validate", async function (next) {
-  if (!this.publicId) {
-    const count = await mongoose.model("Resource").countDocuments();
-    this.publicId = `RES-${String(10001 + count).padStart(5, "0")}`;
-  }
-  next();
-});
+
+resourceSchema.plugin(publicIdPlugin, { modelName: "Resource", prefix: "RES" });
 
 module.exports = mongoose.model("Resource", resourceSchema);
