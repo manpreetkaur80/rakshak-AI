@@ -5,9 +5,9 @@
 Built for **Bit N Builds '26 — Gujarat Round**, organised by **GDG DDU** (problem statement **PS-9**). Full-stack: **React + Vite** client, **Node.js + Express + MongoDB** API, **Socket.IO** for realtime.
 
 **Live demo:** https://rakshak-ai-flame.vercel.app  ·  **API:** https://rakshak-ai-8d12.onrender.com/api/v1/health
-   ![Command dashboard](docs/screenshots/dashboard.png)
-   ![Live map with moving units](docs/screenshots/client.png)
-   ![Mobile view](docs/screenshots/login.png)
+   ![Command dashboard](docs/dashboard.png)
+   ![Live map with moving units](docs/client.png)
+   ![Mobile view](docs/login.png)
 
 
 
