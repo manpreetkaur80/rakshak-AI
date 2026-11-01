@@ -39,7 +39,7 @@ const LOCATIONS = {
 // ── Users ─────────────────────────────────────────────────────────────────────
 const USERS = [
   { name: "Admin User", email: "admin@ps9demo.com", password: "admin123", role: "admin" },
-  { name: "Operator Priya", email: "operator@ps9demo.com", password: "operator123", role: "operator" },
+  { name: "Operator", email: "operator@ps9demo.com", password: "operator123", role: "operator" },
   { name: "Responder Arjun", email: "responder1@ps9demo.com", password: "responder123", role: "responder" },
   { name: "Responder Meera", email: "responder2@ps9demo.com", password: "responder123", role: "responder" },
   { name: "Citizen Raj", email: "citizen@ps9demo.com", password: "citizen123", role: "citizen" },
