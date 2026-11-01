@@ -6,4 +6,6 @@ const counterSchema = new mongoose.Schema({
   seq: { type: Number, default: 0 },
 });
 
-module.exports = mongoose.model("Counter", counterSchema);
+// Dedicated collection name: a generic "counters" collection may already exist in a database created by an
+// older version of the project, with its own (conflicting) unique index on "key".
+module.exports = mongoose.model("Counter", counterSchema, "publicid_sequences");
