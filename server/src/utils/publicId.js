@@ -31,12 +31,18 @@ async function nextPublicId(Model, prefix) {
     }
   }
 
-  const c = await Counter.findOneAndUpdate(
-    { _id: key },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-  return `${prefix}-${String(10000 + c.seq).padStart(5, "0")}`;
+  // Self-healing: if the counter ever lags behind IDs that already exist (data seeded or restored
+  // after the counter was created), skip past them instead of failing with a duplicate-key error.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const c = await Counter.findOneAndUpdate({ _id: key }, { $inc: { seq: 1 } }, { new: true, upsert: true });
+    const candidate = `${prefix}-${String(10000 + c.seq).padStart(5, "0")}`;
+    if (!(await Model.exists({ publicId: candidate }))) return candidate;
+
+    const docs = await Model.find({ publicId: new RegExp(`^${prefix}-\\d+$`) }).select("publicId").lean();
+    const maxSeq = docs.reduce((max, d) => Math.max(max, numericSuffix(d.publicId) - 10000), 0);
+    await Counter.updateOne({ _id: key, seq: { $lt: maxSeq } }, { $set: { seq: maxSeq } });
+  }
+  throw new Error(`Could not allocate a unique ${prefix} id`);
 }
 
 /**
